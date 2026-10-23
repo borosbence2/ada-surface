@@ -5,7 +5,25 @@ curves, a target shape and plain language, and an agent builds it. A
 deterministic Bézier kernel holds the continuity, and every result comes with
 a quality report.
 
-> Status: planning. Nothing builds yet. See [MILESTONES.md](MILESTONES.md).
+> Status: M0. The skeleton builds, but nothing useful runs yet. See
+> [MILESTONES.md](MILESTONES.md).
+
+## Building
+
+Kernel (C++20; CMake ≥ 3.24, Ninja, and GCC, Clang or MSVC):
+
+```
+cmake --preset dev && cmake --build --preset dev
+ctest --preset dev
+```
+
+Studio (Node 24 LTS):
+
+```
+cd studio
+npm ci
+npm start
+```
 
 ## Idea
 

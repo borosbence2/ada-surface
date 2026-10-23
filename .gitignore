@@ -38,3 +38,5 @@ venv/
 node_modules/
 /studio/out/
 /studio/.vite/
+*.tsbuildinfo
+.oxlintcache

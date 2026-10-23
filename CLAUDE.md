@@ -24,9 +24,10 @@ constraint-solving Bézier surface kernel through MCP tools, and ADA Studio
 - Individual nurbs2subd files copied on demand into `core/third_party/n2s/`
   (MIT notice kept; every file and local change listed in `SOURCE.md`).
   nurbs2subd is never linked as a library.
-- `studio/`: Electron (Forge + Vite plugin), TypeScript strict, React, three.js,
-  official MCP TypeScript SDK (client), Vitest. The npm dependency list is just
-  as fixed as the C++ one: ask before adding a package.
+- `studio/`: Node 24 LTS (`studio/.node-version`), Electron (Forge + Vite
+  plugin), TypeScript strict, React, three.js, official MCP TypeScript SDK
+  (client, from M3), Vitest, oxlint + oxfmt. The npm dependency list is just as
+  fixed as the C++ one: ask before adding a package. Keep `npm audit` clean.
 - Python only for analysis scripts and, from Phase 4, ML.
 
 ## Hard rules
@@ -50,13 +51,16 @@ constraint-solving Bézier surface kernel through MCP tools, and ADA Studio
 - Warnings are errors (`/W4`, `-Wall -Wextra -Wpedantic`).
 - Visual output can't be verified by tools: say so and ask the user to look.
 
-## Commands (from M0 on)
+## Commands
 ```
 cmake --preset dev && cmake --build --preset dev
 ctest --preset dev --output-on-failure
-./build/dev/bin/ada report cases/L0-roof-centre.ada.json
-./build/dev/bin/ada bench cases/
+./build/dev/bin/ada --version
+./build/dev/bin/ada report cases/L0-roof-centre.ada.json     # from M2
+./build/dev/bin/ada bench cases/                             # from M6
+
 npm --prefix studio ci
-npm --prefix studio start          # expects ./build/dev/bin/ada-mcp
-npm --prefix studio run typecheck && npm --prefix studio test
+npm --prefix studio start          # from M3 expects ./build/dev/bin/ada-mcp
+npm --prefix studio run lint && npm --prefix studio run typecheck && npm --prefix studio test
+npm --prefix studio run package    # unpacked app in studio/out/
 ```

@@ -222,9 +222,9 @@ be changed before the milestone that depends on it starts.
 - [x] Port `CompilerWarnings`, `Sanitizers`, `GitVersion`, `Dependencies` modules from nurbs2subd.
 - [x] FetchContent: Eigen 3.4, nlohmann/json, fmt, CLI11, Catch2 v3.
 - [x] Empty `ada_core`, `ada`, `ada-mcp` targets; one passing test.
-- [ ] `studio/` skeleton (D10): Forge + Vite + TS + React + three.js; a window with an empty viewport; `typecheck` and Vitest scripts.
+- [x] `studio/` skeleton (D10): Forge + Vite + TS + React + three.js; a window with an empty viewport; `typecheck` and Vitest scripts.
 - [x] `.clang-format`, `.editorconfig`; GitHub Actions on Windows (MSVC) and Linux (GCC, Clang, ASan) + clang-format.
-- [ ] Studio CI job (`npm ci`, typecheck, test, package).
+- [x] Studio CI job (`npm ci`, lint, typecheck, test, package) on Windows and Linux.
 - Exit: CI green on all configurations, including the Studio job.
 
 #### M1 — Geometry core
@@ -252,6 +252,8 @@ be changed before the milestone that depends on it starts.
 - [ ] Diagnostic shaders: curvature colour maps with an explicit fixed range and a legend; highlight isolines from the kernel field (anti-aliased in screen space); zebra and reflection lines (view-dependent, shader only).
 - [ ] Colour each edge green/amber/red from the quality report; report panel.
 - [ ] Picking writes `selection.json`.
+- [ ] Package `ada-mcp` with Studio (`extraResource`) and resolve the sidecar path in dev vs packaged builds.
+- [ ] Content-Security-Policy for packaged builds (dev keeps Vite's inline React-refresh preamble working).
 - Exit: editing the scene JSON by hand updates Studio within a second. Zebra stripes run continuously across a C2 pair and visibly kink across a G1-only pair. *Visual check by the user.*
 
 ### Phase 1 — Easy cases, solved deterministically (L0–L2)
@@ -297,7 +299,7 @@ be changed before the milestone that depends on it starts.
 - [ ] Host the agent in Studio's main process, connected to the same sidecar; hide UI-only tools from it; load the `agent/` craft guide as its instructions.
 - [ ] Chat panel: streaming replies, collapsed tool-call rows, rendered report summaries, the current selection attached to the message as a chip.
 - [ ] API key stored with Electron `safeStorage`; never in the repo, the scene file or logs.
-- [ ] Windows installer via a Forge maker, so others can try it.
+- [ ] Windows installer via the Squirrel maker, so others can try it (approve `electron-winstaller`'s install script under npm 11's `allowScripts` first).
 - Exit: the M8 roof session works entirely inside Studio.
 
 #### M10 — Intent eval
@@ -360,3 +362,10 @@ auto-update and code signing, cloud, multi-user.
   nurbs2subd with `ADA_` prefixes, `ada_core` + `ada` + `ada-mcp` + 2 tests,
   green locally on MinGW GCC 14.2. Studio half blocked: the local Node is
   v20.11 (EOL), and current Electron Forge tooling needs at least 20.12.
+- 2026-10-23 — Local Node switched to 24.22.1 LTS (user PATH). M0 Studio half
+  done: Forge 8 + Vite 8 + TS 6 (strict) + React 19 + three.js 0.186 +
+  Vitest 5, Electron 45. Viewport shows a Z-up mm ground grid with on-demand
+  rendering; `framingDistance` has 4 tests. Deviations from the template:
+  Linux deb/rpm makers and auto-unpack-natives dropped; `@types/node@24`
+  added (Electron 45 no longer pulls it in); oxfmt bumped to latest because
+  the template's 0.41 pulled a critically vulnerable tinypool.

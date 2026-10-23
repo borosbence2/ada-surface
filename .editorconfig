@@ -18,7 +18,7 @@ indent_size = 4
 [*.{json,yml,yaml}]
 indent_size = 2
 
-[*.{ts,tsx,js,mjs,cjs,css,html}]
+[*.{ts,tsx,mts,cts,js,mjs,cjs,css,html}]
 indent_size = 2
 
 [*.py]

@@ -90,6 +90,35 @@ jobs:
           ./build/${{ matrix.preset }}/bin/ada --version
           ./build/${{ matrix.preset }}/bin/ada-mcp --version
 
+  studio:
+    name: studio-${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    defaults:
+      run:
+        working-directory: studio
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: studio/.node-version
+          cache: npm
+          cache-dependency-path: studio/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+
+      # Builds main, preload and renderer with Vite and packages them with the
+      # Electron binary. No installer (`make`) until M9.
+      - name: Package
+        run: npm run package
+
   format:
     name: clang-format
     runs-on: ubuntu-latest
