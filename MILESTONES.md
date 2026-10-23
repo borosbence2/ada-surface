@@ -127,9 +127,18 @@ u-degree and parameterization; derivatives taken in v):
 
 **Y=0 mirror symmetry** (patch edge v=0 lying in y=0):
 - G1: row 1 has the same x and z as row 0 (the cross-boundary derivative is
-  perpendicular to the plane).
-- G2: additionally `(B_{i,2} − 2B_{i,1} + B_{i,0}).y = 0`.
-- Both conditions are linear.
+  perpendicular to the plane). Sufficient, and linear.
+- **G2 needs no extra condition: mirror G1 along the whole edge implies mirror
+  G2.** G1 means the normal has no y-component along the edge. Differentiating
+  that along the edge gives `II(t, y) = 0`, so the second fundamental form is
+  diagonal in the (edge, y) frame, and reflection maps it onto itself
+  (confirmed numerically in `tests/analysis/test_continuity.cpp`). The
+  condition `(B_{i,2} − 2B_{i,1} + B_{i,0}).y = 0` from the first draft of this
+  plan is a parametric C2 choice about row 2's spacing, not a geometric
+  requirement. M4 may use it to regularise row 2, but must not present it as
+  "the G2 constraint".
+- The first geometric condition beyond G1 at the plane is G3 (curvature with
+  zero derivative across it); deferred to L4+.
 
 **Fairness energies** are quadratic in the CVs and computed exactly through
 Bernstein Gram matrices:
@@ -155,7 +164,7 @@ Studio shaders.
 | Edge G0 | max position gap | 0.001 mm |
 | Edge G1 | max normal angle deviation | 0.01° |
 | Edge G2 | max relative cross-boundary normal-curvature deviation | 1 % |
-| Symmetry | same as edge, against the mirrored patch | as above |
+| Symmetry | G0 distance from Y=0 and G1 normal tilt (G2 follows from G1) | as above |
 | Surface | curvature extrema and sign changes in Gaussian/mean curvature over the patch | per case |
 | Highlights | highlight-line wiggle: curvature sign changes and max \|dκ/ds\| along extracted contours | per case |
 | CV hull | zig-zag count (sign changes of second differences along CV rows), max hull turning angle | 0 zig-zags |
@@ -236,11 +245,11 @@ be changed before the milestone that depends on it starts.
 - Exit: all tests pass.
 
 #### M2 — Analysis and quality report
-- [ ] Curvature fields (Gaussian, mean, principal) on a (u,v) grid.
-- [ ] Edge continuity measurement G0/G1/G2 sampled along shared edges and symmetry edges.
-- [ ] Highlight field `s(u,v)`, marching-squares contour extraction, highlight wiggle metric; isophotes.
-- [ ] CV-hull metrics, economy metrics.
-- [ ] Quality report JSON + pass/fail against named budgets; `ada report <scene>`.
+- [x] Curvature fields (Gaussian, mean, principal) on a (u,v) grid.
+- [x] Edge continuity measurement G0/G1/G2 sampled along shared edges and symmetry edges.
+- [x] Highlight field `s(u,v)`, marching-squares contour extraction, highlight wiggle metric; isophotes.
+- [x] CV-hull metrics, economy metrics.
+- [x] Quality report JSON + pass/fail against named budgets; `ada report <scene>`.
 - Tests: two patches built C2 by construction measure ~0 on every check; moving one CV in row 2 breaks G2 but not G1; a cylinder's highlights are straight and evenly spaced; a sphere patch has constant curvature 1/r.
 - Exit: every report field has an oracle test that fails when the property is broken.
 
@@ -260,7 +269,7 @@ be changed before the milestone that depends on it starts.
 
 #### M4 — Constrained solver
 - [ ] Unknowns = free CVs; energy = w_f·(E2 | E3) + w_m·‖x − x_prev‖² (minimal change, so edits stay local) [+ w_t·fit in Phase 3].
-- [ ] Linear equality constraints: fixed CVs, shared G0 rows, G1/G2 edge pairs (fixed α, γ), Y=0 G1/G2, pinned CVs.
+- [ ] Linear equality constraints: fixed CVs, shared G0 rows, G1/G2 edge pairs (fixed α, γ), Y=0 G1 (G2 follows, see §4), pinned CVs.
 - [ ] KKT solve; report constraint residuals and conditioning; reject inconsistent constraint sets with a clear message.
 - [ ] Optional outer loop over α, γ (Gauss–Newton on the energy).
 - Tests: constraints hold to < 1e-10; with zero fairness weight and full constraints the result matches a hand-built C2 pair; changing w_m changes how far untouched CVs move.
@@ -383,3 +392,23 @@ auto-update and code signing, cloud, multi-user.
   mutation checks confirmed the suite fails when the hodograph factor or the
   split is broken. Evaluation allocates scratch vectors per call; revisit if
   tessellation (M3) or the solver (M4) shows it in a profile.
+- 2026-10-23 — M2 done. Analysis: curvature summaries, edge continuity
+  (closest-point correspondence; G1 includes a fold check; G2 = cross-boundary
+  normal curvature, which is all that can differ once G1 holds), symmetry,
+  highlight field + marching squares refined on the exact field + geodesic
+  curvature inflections, isophotes, CV-hull bending (normal and sideways
+  components counted separately; the first version signed turns by the
+  normal, which is noise for rows along principal directions, and the clean
+  cylinder test caught it). Budgets with validated keys; quality report as
+  JSON and text; `ada report` (exit 0 pass / 1 fail / 2 error).
+  **Deviations:** (1) mirror G2 follows from mirror G1, so §4 is corrected
+  and symmetry links check G0 + G1 only; (2) the scene format v0 (solved
+  CVs + edge/symmetry links + budgets + light) was needed for `ada report`
+  and is pulled forward from M5, which extends it with recipes; (3) the
+  "sphere has curvature 1/r" test uses exact analytic sphere derivatives
+  plus exact Bézier paraboloids, since a polynomial patch cannot be a sphere.
+  Copied n2s `differential` (curvature formulas). Example scenes in
+  `cases/examples/` come from a hidden generator test, and a normal test fails
+  if they drift. 75 tests; 11 deliberate breakages of the measurements were
+  all caught. `ada report` on the 2-patch example takes ~1.2 s in Debug,
+  mostly highlight extraction.

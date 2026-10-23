@@ -56,7 +56,7 @@ constraint-solving Bézier surface kernel through MCP tools, and ADA Studio
 cmake --preset dev && cmake --build --preset dev
 ctest --preset dev --output-on-failure
 ./build/dev/bin/ada --version
-./build/dev/bin/ada report cases/L0-roof-centre.ada.json     # from M2
+./build/dev/bin/ada report cases/examples/hood.ada.json      # exit 0 pass, 1 fail, 2 error
 ./build/dev/bin/ada bench cases/                             # from M6
 
 npm --prefix studio ci

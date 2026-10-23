@@ -5,6 +5,7 @@
 
 #include <array>
 #include <cstddef>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -116,5 +117,19 @@ private:
     int degree_v_;
     std::vector<Vec3> points_;
 };
+
+/// `(u, v)` of the point at parameter `s` along `edge`, in the same direction
+/// as `BezierPatch::edge_row`.
+std::pair<double, double> edge_point(Edge edge, double s);
+
+/// The first cross-boundary derivative at a point on `edge`, signed to point
+/// into the patch: `Su` on UMin, `-Su` on UMax, `Sv` on VMin, `-Sv` on VMax.
+Vec3 inward_derivative(const PatchDerivatives& d, Edge edge);
+
+/// "UMin", "UMax", "VMin" or "VMax".
+const char* to_string(Edge edge);
+
+/// Inverse of `to_string`; throws `std::invalid_argument` on anything else.
+Edge edge_from_string(const std::string& name);
 
 } // namespace ada

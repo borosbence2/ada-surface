@@ -228,4 +228,56 @@ BezierCurve BezierPatch::boundary(Edge edge) const {
     return BezierCurve(edge_row(edge, 0));
 }
 
+std::pair<double, double> edge_point(Edge edge, double s) {
+    switch (edge) {
+    case Edge::UMin:
+        return {0.0, s};
+    case Edge::UMax:
+        return {1.0, s};
+    case Edge::VMin:
+        return {s, 0.0};
+    case Edge::VMax:
+        return {s, 1.0};
+    }
+    throw std::invalid_argument("unknown edge");
+}
+
+Vec3 inward_derivative(const PatchDerivatives& d, Edge edge) {
+    switch (edge) {
+    case Edge::UMin:
+        return d.du();
+    case Edge::UMax:
+        return -d.du();
+    case Edge::VMin:
+        return d.dv();
+    case Edge::VMax:
+        return -d.dv();
+    }
+    throw std::invalid_argument("unknown edge");
+}
+
+const char* to_string(Edge edge) {
+    switch (edge) {
+    case Edge::UMin:
+        return "UMin";
+    case Edge::UMax:
+        return "UMax";
+    case Edge::VMin:
+        return "VMin";
+    case Edge::VMax:
+        return "VMax";
+    }
+    throw std::invalid_argument("unknown edge");
+}
+
+Edge edge_from_string(const std::string& name) {
+    for (const Edge edge : {Edge::UMin, Edge::UMax, Edge::VMin, Edge::VMax}) {
+        if (name == to_string(edge)) {
+            return edge;
+        }
+    }
+    throw std::invalid_argument(
+        fmt::format("'{}' is not an edge; expected UMin, UMax, VMin or VMax", name));
+}
+
 } // namespace ada

@@ -90,6 +90,16 @@ jobs:
           ./build/${{ matrix.preset }}/bin/ada --version
           ./build/${{ matrix.preset }}/bin/ada-mcp --version
 
+      # The exit code is the contract scripts rely on: 0 pass, 1 fail, 2 error.
+      - name: Smoke-test ada report
+        shell: bash
+        run: |
+          ada=./build/${{ matrix.preset }}/bin/ada
+          $ada report cases/examples/hood.ada.json
+          set +e
+          $ada report cases/examples/hood-g2-broken.ada.json; test $? -eq 1 || exit 1
+          $ada report cases/examples/missing.ada.json; test $? -eq 2 || exit 1
+
   studio:
     name: studio-${{ matrix.os }}
     runs-on: ${{ matrix.os }}
