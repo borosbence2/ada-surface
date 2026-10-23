@@ -369,3 +369,5 @@ auto-update and code signing, cloud, multi-user.
   Linux deb/rpm makers and auto-unpack-natives dropped; `@types/node@24`
   added (Electron 45 no longer pulls it in); oxfmt bumped to latest because
   the template's 0.41 pulled a critically vulnerable tinypool.
+- 2026-10-23 — **M0 exit met**: CI green on all 7 jobs (Linux GCC/Clang/ASan,
+  Windows MSVC, clang-format, Studio on Windows + Linux).
