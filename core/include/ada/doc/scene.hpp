@@ -7,6 +7,7 @@
 #include "ada/analysis/budgets.hpp"
 #include "ada/analysis/highlight.hpp"
 #include "ada/geom/bezier_patch.hpp"
+#include "ada/geom/continuity.hpp"
 
 #include <nlohmann/json.hpp>
 
@@ -16,13 +17,6 @@
 #include <vector>
 
 namespace ada {
-
-enum class Continuity { G0, G1, G2 };
-
-const char* to_string(Continuity continuity);
-
-/// Throws `std::invalid_argument` unless `name` is "G0", "G1" or "G2".
-Continuity continuity_from_string(const std::string& name);
 
 struct ScenePatch {
     std::string id;

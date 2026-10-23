@@ -268,10 +268,10 @@ be changed before the milestone that depends on it starts.
 ### Phase 1 — Easy cases, solved deterministically (L0–L2)
 
 #### M4 — Constrained solver
-- [ ] Unknowns = free CVs; energy = w_f·(E2 | E3) + w_m·‖x − x_prev‖² (minimal change, so edits stay local) [+ w_t·fit in Phase 3].
-- [ ] Linear equality constraints: fixed CVs, shared G0 rows, G1/G2 edge pairs (fixed α, γ), Y=0 G1 (G2 follows, see §4), pinned CVs.
-- [ ] KKT solve; report constraint residuals and conditioning; reject inconsistent constraint sets with a clear message.
-- [ ] Optional outer loop over α, γ (Gauss–Newton on the energy).
+- [x] Unknowns = free CVs; energy = w_f·(E2 | E3) + w_m·‖x − x_prev‖² (minimal change, so edits stay local) [+ w_t·fit in Phase 3].
+- [x] Linear equality constraints: fixed CVs, shared G0 rows, G1/G2 edge pairs (fixed α, γ), Y=0 G1 (G2 follows, see §4), pinned CVs.
+- [x] KKT solve; report constraint residuals and conditioning; reject inconsistent constraint sets with a clear message.
+- [ ] Optional outer loop over α, γ (Gauss–Newton on the energy). *Deferred until a case needs it: α = 1, γ = 0 (parametric C2) is right for uniformly parameterised networks, which is everything in L0–L2.*
 - Tests: constraints hold to < 1e-10; with zero fairness weight and full constraints the result matches a hand-built C2 pair; changing w_m changes how far untouched CVs move.
 - Exit: a 3×3 network solves in < 50 ms in release.
 
@@ -442,3 +442,21 @@ auto-update and code signing, cloud, multi-user.
   CI caught one Clang-only `-Wdouble-promotion` error in the MCP test (float
   mesh values passed as double); fixed by widening explicitly. A local Clang 19
   build of every translation unit is now warning-free too.
+- 2026-10-23 — M4 done. `ada::solve`: the constraints act on x, y, z
+  separately (true for everything L0–L3 needs; shear terms and tilted
+  symmetry planes are L4+), so it solves three small exact problems. Per axis:
+  constraint rows normalised, rank-revealing QR of Cᵀ (redundant rows from
+  shared corners are fine), minimum-norm particular solution plus null-space
+  basis, LDLT on the reduced energy. Contradictory constraints are rejected
+  with the labels that conflict most. Energy = fairness (E2 or E3, exact
+  Bernstein-Gram quadratic forms, normalised by mean diagonal) + move weight
+  × |x − x_current|² + a 1e-9 tie-break. Fairness 0 + move 1 is the
+  least-change projection onto the constraints ("make this edge G2"); on
+  hood-g2-broken it undoes exactly the 4 mm move. Builders: `add_fixed`,
+  `add_fixed_row`, `add_edge_join` (G0/G1/G2 rows with α, γ; orientation from
+  geometry), `add_symmetry` (Y=0 G1). The KKT system of the plan became this
+  null-space formulation, which handles redundancy without special cases.
+  3×3 bicubic network, 12 internal G2 joins, scrambled interior: 6.5 ms in
+  release (target 50 ms), every joint measured G2. Studio now runs the most
+  recently built kernel instead of preferring release (a stale release build
+  had become a trap once one existed).

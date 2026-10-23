@@ -47,4 +47,20 @@ inline constexpr double kHighlightCurvatureNoise = 1e-6;
 /// in either direction when inflections of a CV row are counted.
 inline constexpr double kHullTurnNoise = 1e-4;
 
+/// Constraint rows are normalised to unit length; a QR pivot below this marks
+/// a row as dependent on the others (a redundant constraint, as at shared
+/// corners), not a new condition.
+inline constexpr double kConstraintRank = 1e-10;
+
+/// The constraints are contradictory when no point satisfies them to within
+/// this fraction of the problem's coordinate scale (1e-9 of a 1 m part is a
+/// micrometre's thousandth).
+inline constexpr double kConstraintConsistency = 1e-9;
+
+/// A pull towards the current control points this weak (relative to the
+/// normalised fairness energy) only decides directions that neither the
+/// energy nor the constraints pin down; it keeps every solve well-posed
+/// without visibly changing a determined result.
+inline constexpr double kSolverTieBreak = 1e-9;
+
 } // namespace ada::tol

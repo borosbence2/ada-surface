@@ -15,7 +15,7 @@ import type {
 } from '../shared/types';
 import { decodeTessellation } from './decode';
 import { Kernel } from './kernel';
-import { kernelCandidates } from './kernel-path';
+import { kernelCandidates, pickKernel } from './kernel-path';
 import { SceneWatcher } from './scene-watcher';
 
 // Squirrel.Windows launches the app with install/uninstall flags to manage
@@ -99,7 +99,13 @@ async function startKernel(): Promise<void> {
     appPath: app.getAppPath(),
     platform: process.platform,
   });
-  const binary = candidates.find((c) => fs.existsSync(c));
+  const binary = pickKernel(candidates, (file) => {
+    try {
+      return fs.statSync(file).mtimeMs;
+    } catch {
+      return null;
+    }
+  });
   if (!binary) {
     setKernelStatus({
       state: 'stopped',

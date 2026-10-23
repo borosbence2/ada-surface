@@ -194,32 +194,39 @@ int BezierPatch::degree_across(Edge edge) const noexcept {
     return edge == Edge::UMin || edge == Edge::UMax ? degree_u_ : degree_v_;
 }
 
-std::vector<Vec3> BezierPatch::edge_row(Edge edge, int depth) const {
+std::pair<std::size_t, std::size_t>
+BezierPatch::edge_row_cv(Edge edge, int depth, std::size_t k) const {
     if (depth < 0 || depth > degree_across(edge)) {
         throw std::out_of_range(
             fmt::format("row depth {} is outside 0..{}, the degree across this edge",
                         depth,
                         degree_across(edge)));
     }
+    const auto along = static_cast<std::size_t>(degree_along(edge)) + 1;
+    if (k >= along) {
+        throw std::out_of_range(fmt::format("row position {} is outside 0..{}", k, along - 1));
+    }
     const std::size_t d = to_index(depth);
-    std::vector<Vec3> result;
     switch (edge) {
     case Edge::UMin:
-    case Edge::UMax: {
-        const std::size_t i = edge == Edge::UMin ? d : to_index(degree_u_) - d;
-        for (std::size_t j = 0; j < num_v(); ++j) {
-            result.push_back(control_point(i, j));
-        }
-        break;
-    }
+        return {d, k};
+    case Edge::UMax:
+        return {to_index(degree_u_) - d, k};
     case Edge::VMin:
-    case Edge::VMax: {
-        const std::size_t j = edge == Edge::VMin ? d : to_index(degree_v_) - d;
-        for (std::size_t i = 0; i < num_u(); ++i) {
-            result.push_back(control_point(i, j));
-        }
-        break;
+        return {k, d};
+    case Edge::VMax:
+        return {k, to_index(degree_v_) - d};
     }
+    throw std::invalid_argument("unknown edge");
+}
+
+std::vector<Vec3> BezierPatch::edge_row(Edge edge, int depth) const {
+    const auto along = static_cast<std::size_t>(degree_along(edge)) + 1;
+    std::vector<Vec3> result;
+    result.reserve(along);
+    for (std::size_t k = 0; k < along; ++k) {
+        const auto [i, j] = edge_row_cv(edge, depth, k);
+        result.push_back(control_point(i, j));
     }
     return result;
 }

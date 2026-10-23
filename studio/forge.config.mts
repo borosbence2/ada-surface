@@ -10,13 +10,15 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses';
 
 // The kernel ships next to the app as an extra resource (resourcesPath), where
 // src/main/kernel-path.ts looks for it in a packaged build. Forge runs from
-// studio/, so the CMake build tree is one level up; an optimised build is
-// preferred. Without a built kernel the app still packages, and reports at
+// studio/, so the CMake build tree is one level up. Like the dev-time lookup,
+// the most recently built preset wins, so a stale build is never packaged by
+// accident. Without a built kernel the app still packages, and reports at
 // runtime that ada-mcp is missing.
 const kernelExe = process.platform === 'win32' ? 'ada-mcp.exe' : 'ada-mcp';
 const kernel = ['release', 'dev', 'ci']
   .map((preset) => path.resolve(process.cwd(), '..', 'build', preset, 'bin', kernelExe))
-  .find((candidate) => fs.existsSync(candidate));
+  .filter((candidate) => fs.existsSync(candidate))
+  .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)[0];
 if (!kernel) {
   console.warn('[ada] no ada-mcp build found; packaging Studio without its kernel');
 }

@@ -109,6 +109,10 @@ public:
     /// `std::out_of_range` unless `0 <= depth <= degree_across(edge)`.
     std::vector<Vec3> edge_row(Edge edge, int depth) const;
 
+    /// The (i, j) index of the `k`-th control point of `edge_row(edge, depth)`.
+    /// Throws `std::out_of_range` on a depth or position outside the row.
+    std::pair<std::size_t, std::size_t> edge_row_cv(Edge edge, int depth, std::size_t k) const;
+
     /// The boundary curve on `edge`, parameterised like `edge_row`.
     BezierCurve boundary(Edge edge) const;
 

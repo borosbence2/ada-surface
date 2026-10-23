@@ -2,7 +2,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { decodeF32, decodeTessellation, decodeU32 } from './decode';
-import { kernelCandidates } from './kernel-path';
+import { kernelCandidates, pickKernel } from './kernel-path';
 
 const f32 = (values: number[]) => Buffer.from(new Float32Array(values).buffer).toString('base64');
 const u32 = (values: number[]) => Buffer.from(new Uint32Array(values).buffer).toString('base64');
@@ -62,7 +62,13 @@ describe('kernel location', () => {
     ]);
   });
 
-  it('looks in the build tree during development, optimised builds first', () => {
+  it('runs the most recently built kernel, not a fixed preset', () => {
+    const times: Record<string, number> = { release: 100, dev: 200 };
+    expect(pickKernel(['release', 'dev', 'ci'], (f) => times[f] ?? null)).toBe('dev');
+    expect(pickKernel(['ci'], () => null)).toBeNull();
+  });
+
+  it('looks in every preset of the build tree during development', () => {
     const repo = path.resolve('/repo');
     expect(kernelCandidates(base)).toEqual(
       ['release', 'dev', 'ci'].map((preset) => path.join(repo, 'build', preset, 'bin', 'ada-mcp')),

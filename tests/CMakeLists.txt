@@ -12,6 +12,8 @@ add_executable(ada_tests
     geom/test_convert.cpp
     geom/test_patch_evaluator.cpp
     mcp/test_server.cpp
+    solve/test_fairness.cpp
+    solve/test_solver.cpp
     support/panels.cpp
     support/panels.hpp
     support/polynomial.cpp

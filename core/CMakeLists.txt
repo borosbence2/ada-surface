@@ -24,9 +24,13 @@ add_library(ada_core STATIC
     include/ada/geom/bezier_curve.hpp
     include/ada/geom/bezier_patch.hpp
     include/ada/geom/closest_point.hpp
+    include/ada/geom/continuity.hpp
     include/ada/geom/convert.hpp
     include/ada/geom/patch_evaluator.hpp
     include/ada/geom/vec.hpp
+    include/ada/solve/constraints.hpp
+    include/ada/solve/fairness.hpp
+    include/ada/solve/solver.hpp
     include/ada/tolerances.hpp
     src/analysis/budgets.cpp
     src/analysis/continuity.cpp
@@ -41,10 +45,14 @@ add_library(ada_core STATIC
     src/geom/bezier_curve.cpp
     src/geom/bezier_patch.cpp
     src/geom/closest_point.cpp
+    src/geom/continuity.cpp
     src/geom/convert.cpp
     src/geom/patch_evaluator.cpp
     src/geom/polygon_ops.cpp
     src/geom/polygon_ops.hpp
+    src/solve/constraints.cpp
+    src/solve/fairness.cpp
+    src/solve/solver.cpp
     "${CMAKE_CURRENT_BINARY_DIR}/generated/build_info.cpp")
 
 add_library(ada::core ALIAS ada_core)
