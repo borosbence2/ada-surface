@@ -4,8 +4,9 @@
 tool. The designer states intent with curves, a target shape and plain language.
 An LLM agent turns that intent into operations on a **deterministic,
 constraint-solving surface kernel**. The kernel guarantees the geometry, a
-quality report checks it, and the designer watches the result in a live viewer
-and exports to NX for verification and downstream work.
+quality report checks it, and the designer watches the result live in
+**ADA Studio** (an Electron app) and exports to NX for verification and
+downstream work.
 
 This file is the live task graph. Update the checkboxes and the `## Progress`
 section as work lands, not at the end.
@@ -69,26 +70,40 @@ core/          ada::core: geometry kernel. No graphics, no network.
   io/          IGES 128 writer, OBJ/STL target reader
 apps/
   ada          CLI: solve a scene, print/write the quality report, export, bench
-  ada-mcp      MCP stdio server: kernel operations as tools over one scene file
-  ada-view     Polyscope viewer: hot reload, diagnostics, selection bridge
+  ada-mcp      MCP stdio server: kernel operations as tools over one scene
+               file. `--ui-tools` adds viewer-only tools (tessellation, fields)
+studio/        ADA Studio: Electron app (TypeScript, Vite, React, three.js)
+  main/        starts ada-mcp as a sidecar process, MCP client, scene file
+               watch, agent host (M9)
+  preload/     narrow contextBridge API (the renderer has no Node access)
+  renderer/    three.js viewport, diagnostic shaders, panels, chat (M9)
 agent/         craft guide (Claude Code skill) + intent eval tasks
 cases/         benchmark scenes L0–L3 with quality budgets
 tests/         Catch2, mirrors core/
 ```
 
-**The agent loop.** Claude Code (or any MCP client) runs `ada-mcp`, which owns
-`<name>.ada.json`. Every tool call loads the scene, applies the operation,
-solves, writes the file and returns a short quality summary. `ada-view` watches
-the same file and reloads when it changes. When the designer picks an edge or
-patch in the viewer, the viewer writes `selection.json`, and the agent reads it
-through a tool. That makes requests like "make *this* edge G2" work.
-Undo is a snapshot stack in the document. The scene file is plain JSON, so git
-history works as design history.
+**One kernel, two kinds of client.** `ada-mcp` is the only thing that touches
+geometry. Studio and the agent are both MCP clients of it. Studio never
+evaluates geometry itself: it renders the tessellations and fields the kernel
+returns.
+
+**The agent loop** has two routes, and both work against the same scene file:
+- **Route A, Claude Code (Phase 2, M8):** Claude Code runs its own `ada-mcp`.
+  Each tool call loads `<name>.ada.json`, applies the operation, solves, writes
+  the file and returns a short quality summary. Studio's own sidecar notices
+  the file change and reloads within a second.
+- **Route B, in Studio (M9):** Studio's main process hosts the agent, and the
+  agent and the viewport share one sidecar. The chat lives in Studio's window.
+
+Picking an edge or patch in Studio writes `selection.json`, and the agent reads
+it through a tool. That makes requests like "make *this* edge G2" work on
+either route. Undo is a snapshot stack in the document. The scene file is plain
+JSON, so git history works as design history.
 
 **The scene is recipe-based, not a pile of CVs.** A patch stores how it was made
 (`from_boundaries`, `blend`, `network`, `fit_target`) plus its constraints.
 `solve` recomputes the free CVs. The agent edits recipes and constraints, never
-coordinates. Manual CV nudges (later, from the viewer) enter the solver as soft
+coordinates. Manual CV nudges (later, from Studio) enter the solver as soft
 targets, so constraints still hold.
 
 ## 4. Geometry and quality definitions
@@ -129,8 +144,9 @@ holds parallel light lines with direction E and spacing d along D. Take the
 surface normal line through P with direction N, and let Q be where it
 intersects the light plane. Then `s(u,v) = D·(Q − A₀)` and the highlight lines
 are the level sets `s = k·d`. The field does not depend on the view, so the
-CLI can compute and test it with no renderer. The view-dependent zebra and
-reflection lines are viewer-only (D6).
+kernel computes it and the CLI can test it with no renderer; Studio draws its
+isolines. The view-dependent **zebra and reflection lines** exist only as
+Studio shaders.
 
 **Quality report** (the contract; JSON, one per scene):
 
@@ -156,7 +172,8 @@ open questions).
 Status: **confirmed** = user decided; **proposed** = recommended default, may
 be changed before the milestone that depends on it starts.
 
-- **D1 Name** — ADA Surface, repo `ada-surface`, C++ namespace `ada`. *Confirmed.*
+- **D1 Name** — ADA Surface, repo `ada-surface`, C++ namespace `ada`. The app is
+  **ADA Studio**. *Confirmed.*
 - **D2 Visibility and licence** — private GitHub repo with no licence file
   (all rights reserved) while the commercial question is open. Revisit before
   anything goes public. *Proposed.*
@@ -171,12 +188,13 @@ be changed before the milestone that depends on it starts.
   out of scope. Revisit (shared `n2s_nurbs` target) if both keep evolving.
   *Proposed.*
 - **D5 Agent interface** — a hand-written MCP stdio server (JSON-RPC, tools only)
-  in C++ with nlohmann/json; no SDK dependency. Claude Code is the first client,
-  so no chat UI needs to be built for a long time. *Proposed.*
-- **D6 Viewer** — Polyscope first: it is proven in nurbs2subd, and scalar
-  quantities with fixed ranges and isolines cover curvature and highlight
-  fields. Later, a Vulkan viewer on forfun-graphics for view-dependent zebra and
-  reflection lines and a studio look. *Proposed.*
+  in C++ with nlohmann/json; no SDK dependency on the kernel side. Clients:
+  Claude Code first (M8), then an agent hosted inside Studio (M9). *Proposed.*
+- **D6 UI** — **ADA Studio, an Electron app** (React + three.js), with the kernel
+  running as a native sidecar process that Studio talks to over MCP. This
+  replaces the earlier Polyscope-then-Vulkan viewer plan. three.js makes the
+  view-dependent zebra and reflection shaders straightforward, which Polyscope
+  could not do. *Confirmed (Electron); the details in D10 are proposed.*
 - **D7 Primitive** — polynomial single-span Bézier patches with matched edges
   for L0–L3 (section 4). *Proposed.*
 - **D8 Export** — a hand-written IGES writer (entity 128) first, since NX imports
@@ -185,6 +203,14 @@ be changed before the milestone that depends on it starts.
 - **D9 Linear algebra** — Eigen 3.4, dense LDLT/QR at first. An L2 network is
   only a few hundred CVs, so sparse solvers come only when a case needs them.
   *Proposed.*
+- **D10 Studio tooling** — Electron Forge with its Vite plugin, TypeScript
+  (strict), React, three.js, the official MCP TypeScript SDK (client side),
+  Vitest. No UI component kit and no state-management library to start with.
+  Versions pinned via `package-lock.json`. Electron security defaults:
+  `contextIsolation` on, `nodeIntegration` off, renderer sandboxed. *Proposed.*
+- **D11 WebAssembly kernel** — an Emscripten build of `ada_core` for a no-install
+  browser demo (GitHub Pages). *Deferred*: it adds a toolchain and nothing
+  needs it before Phase 3.
 
 ## 6. Milestones
 
@@ -193,10 +219,11 @@ be changed before the milestone that depends on it starts.
 #### M0 — Repository and build
 - [ ] CMake project, presets `dev` (Debug, sanitizers off-Windows), `release`, `ci`, `ci-nogfx`.
 - [ ] Port `CompilerWarnings`, `Sanitizers`, `GitVersion`, `Dependencies` modules from nurbs2subd.
-- [ ] FetchContent: Eigen 3.4, nlohmann/json, fmt, CLI11, Catch2 v3; Polyscope only for `ada-view`.
-- [ ] Empty `ada_core`, `ada`, `ada-mcp`, `ada-view` targets; one passing test.
-- [ ] `.clang-format`, `.editorconfig`; GitHub Actions on Windows (MSVC) and Linux (GCC, Clang).
-- Exit: CI green on all configurations.
+- [ ] FetchContent: Eigen 3.4, nlohmann/json, fmt, CLI11, Catch2 v3.
+- [ ] Empty `ada_core`, `ada`, `ada-mcp` targets; one passing test.
+- [ ] `studio/` skeleton (D10): Forge + Vite + TS + React + three.js; a window with an empty viewport; `typecheck` and Vitest scripts.
+- [ ] `.clang-format`, `.editorconfig`; GitHub Actions on Windows (MSVC) and Linux (GCC, Clang), plus a Studio job (`npm ci`, typecheck, test, package).
+- Exit: CI green on all configurations, including the Studio job.
 
 #### M1 — Geometry core
 - [ ] Vendor the n2s nurbs subset (D4), record the source commit in `core/third_party/n2s/SOURCE.md`.
@@ -215,12 +242,15 @@ be changed before the milestone that depends on it starts.
 - Tests: two patches built C2 by construction measure ~0 on every check; moving one CV in row 2 breaks G2 but not G1; a cylinder's highlights are straight and evenly spaced; a sphere patch has constant curvature 1/r.
 - Exit: every report field has an oracle test that fails when the property is broken.
 
-#### M3 — Viewer v0
-- [ ] Load a scene; tessellate patches; show CV hulls, boundary curvature combs.
-- [ ] Scalar quantities with explicit fixed ranges: curvatures, highlight field with isolines.
-- [ ] Colour each edge green/amber/red by its continuity budget.
-- [ ] Hot reload on file change; picking writes `selection.json`.
-- Exit: editing the scene JSON by hand updates the viewer within a second. *Visual check by the user.*
+#### M3 — Kernel server and Studio v0
+- [ ] `ada-mcp` transport: stdio JSON-RPC with `initialize`, `tools/list`, `tools/call`; tools `scene_open`, `scene_summary`, `quality_report`.
+- [ ] `--ui-tools`: `tessellate` returns positions, normals, indices, (u,v) and per-vertex curvature and highlight fields as base64 little-endian arrays; `cv_hulls`; `boundary_combs`.
+- [ ] Studio main: start the sidecar, connect the MCP client, watch the scene file, re-tessellate on change; surface sidecar crashes in the UI.
+- [ ] Viewport: patches, CV hulls, boundary curvature combs, orbit camera, neutral studio lighting.
+- [ ] Diagnostic shaders: curvature colour maps with an explicit fixed range and a legend; highlight isolines from the kernel field (anti-aliased in screen space); zebra and reflection lines (view-dependent, shader only).
+- [ ] Colour each edge green/amber/red from the quality report; report panel.
+- [ ] Picking writes `selection.json`.
+- Exit: editing the scene JSON by hand updates Studio within a second. Zebra stripes run continuously across a C2 pair and visibly kink across a G1-only pair. *Visual check by the user.*
 
 ### Phase 1 — Easy cases, solved deterministically (L0–L2)
 
@@ -243,37 +273,45 @@ be changed before the milestone that depends on it starts.
 #### M6 — Case ladder, bench and NX check
 - [ ] Cases: `L0-roof-centre`, `L0s-roof-centre-sym`, `L1-g2-blend`, `L2-hood-2x2-sym`, `L2-panel-3x3`, each with a budget.
 - [ ] `ada bench cases/` → scorecard (markdown + JSON); runs in CI.
-- [ ] IGES 128 export; import into NX and check continuity with NX's own analysis tools; record the results in `docs/nx-verification.md`.
+- [ ] IGES 128 export (CLI and an export button in Studio); import into NX and check continuity with NX's own analysis tools; record the results in `docs/nx-verification.md`.
 - Exit: all cases pass their budgets in CI, and NX's continuity analysis agrees with our report within tolerance. *NX check by the user.*
 
 ### Phase 2 — The vibe loop
 
-#### M7 — MCP server
-- [ ] stdio JSON-RPC: `initialize`, `tools/list`, `tools/call`; structured errors written for an agent to read.
-- [ ] Tools: `scene_new/open/summary`, `curve_from_points`, `patch_from_boundaries`, `patch_blend`, `network_from_curves`, `edge_constrain`, `symmetry_constrain`, `patch_set_degree`, `fairness_set`, `solve`, `quality_report`, `get_selection`, `undo`, `export_iges`.
-- [ ] No tool sets raw CV coordinates (design rule, section 1).
+#### M7 — Agent toolset
+- [ ] Tools: `scene_new`, `curve_from_points`, `patch_from_boundaries`, `patch_blend`, `network_from_curves`, `edge_constrain`, `symmetry_constrain`, `patch_set_degree`, `fairness_set`, `solve`, `get_selection`, `undo`, `export_iges`.
+- [ ] Structured errors written for an agent to read (what failed, which constraint, what to try).
+- [ ] No tool sets raw CV coordinates (design rule, section 1). UI-only tools stay behind `--ui-tools`.
 - [ ] `claude mcp add ada -- ada-mcp --scene <file>` documented in README.
 - Exit: the L2 hood case can be built from scratch through tool calls alone.
 
-#### M8 — Craft guide and selection bridge
+#### M8 — Craft guide and selection bridge (route A, Claude Code)
 - [ ] `agent/` skill: Class-A workflow (inspect → change → solve → report → explain), what each metric means, when to raise degree versus split, and when to stop and ask.
-- [ ] Selection bridge end to end: pick in the viewer, then the agent refers to "this edge".
-- Exit: a natural-language session builds a symmetric G2 roof, and the agent explains the final report correctly. *Session judged by the user.*
+- [ ] Selection bridge end to end: pick in Studio, then the agent refers to "this edge".
+- Exit: a natural-language session in Claude Code, watched live in Studio, builds a symmetric G2 roof, and the agent explains the final report correctly. *Session judged by the user.*
 
-#### M9 — Intent eval
+#### M9 — Studio chat (route B, in-app agent)
+- [ ] Choose the agent host by checking the current Anthropic docs at the time: Claude Agent SDK (TypeScript) versus the Messages API tool runner with an MCP client. Record the choice as D12.
+- [ ] Host the agent in Studio's main process, connected to the same sidecar; hide UI-only tools from it; load the `agent/` craft guide as its instructions.
+- [ ] Chat panel: streaming replies, collapsed tool-call rows, rendered report summaries, the current selection attached to the message as a chip.
+- [ ] API key stored with Electron `safeStorage`; never in the repo, the scene file or logs.
+- [ ] Windows installer via a Forge maker, so others can try it.
+- Exit: the M8 roof session works entirely inside Studio.
+
+#### M10 — Intent eval
 - [ ] 10–20 scripted intent tasks with success defined by the quality report (not by judging the transcript).
-- [ ] Runner using Claude Code headless (`claude -p`) with the ADA MCP server; transcripts and scorecards saved.
+- [ ] Runner on route A (`claude -p` with the ADA MCP server) first; route B once M9 lands. Save transcripts and scorecards.
 - Exit: baseline success rate recorded; regressions visible from one run to the next.
 
 ### Phase 3 — Fitting to targets (L3)
 
-#### M10 — Target fitting
+#### M11 — Target fitting
 - [ ] Read OBJ/STL/PLY targets; sample points; closest-point parameter correction (n2s projection).
-- [ ] Fit term in the solver; deviation map in the viewer and report.
+- [ ] Fit term in the solver; deviation colour map in Studio and in the report.
 - [ ] CV economy: start at a low degree and elevate (or split) until deviation is within budget.
 - Exit: synthetic targets (known Bézier + noise) are recovered within noise level at the original degree.
 
-#### M11 — Hood from real data
+#### M12 — Hood from real data
 - [ ] Source the target: the Cranfield DrivAer CAD packs (CC BY 4.0) or the TUM DrivAer CAD (on request; check its terms). Synthetic fallback either way.
 - [ ] Case `L3-hood-from-target`, runnable by the agent: "rebuild this hood, G2 at Y=0, 0.5 mm".
 - Exit: the case passes in the bench and exported surfaces pass the NX check.
@@ -285,8 +323,9 @@ be changed before the milestone that depends on it starts.
   model that predicts a defect heatmap from curvature and highlight fields or
   rendered zebra images. Compare against the deterministic report; validate
   against a practitioner's ratings.
-- **R2 Vision in the loop.** A `render_view` tool returns images to the agent.
-  Measure on the M9 eval whether seeing zebra improves results.
+- **R2 Vision in the loop.** A `render_view` tool returns Studio viewport
+  captures to the agent. Measure on the M10 eval whether seeing zebra improves
+  results.
 - **R3 Layout proposal.** From a target mesh, propose feature lines and a quad
   patch layout, so L3 works without a hand-made curve network.
 - **R4 SubD → Class-A.** Turn a concept SubD into a sparse Bézier network: the
@@ -294,12 +333,12 @@ be changed before the milestone that depends on it starts.
 
 ### Out of scope until L0–L3 are solid
 Trimmed surfaces, non-quad corners, set-back fillets, flanges and hems, an NX
-plug-in beyond IGES/STEP plus an NX Open journal, an in-app chat UI, cloud,
-multi-user.
+plug-in beyond IGES/STEP plus an NX Open journal, the WebAssembly build (D11),
+auto-update and code signing, cloud, multi-user.
 
 ## 7. Open questions
 
-- **NX access**: which NX version, and is it available for the M6/M11
+- **NX access**: which NX version, and is it available for the M6/M12
   verification step?
 - **Practitioner contact**: can a working Class-A modeller review the budgets
   in section 4 and judge results? This is the most valuable outside input.
@@ -308,3 +347,7 @@ multi-user.
 ## Progress
 
 - 2026-10-23 — Repo created (private), plan drafted. Next: confirm D2–D9, then M0.
+- 2026-10-23 — D6 confirmed: ADA Studio is an Electron app (React + three.js)
+  with the kernel as an MCP sidecar, replacing the Polyscope/Vulkan viewer plan.
+  The minimal MCP transport moved into M3, Studio chat added as M9, milestones
+  renumbered to M0–M12, D10 (Studio tooling) and D11 (WASM, deferred) added.

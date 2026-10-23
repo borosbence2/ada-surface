@@ -33,3 +33,8 @@ venv/
 # Stray archives / scratch
 *.zip
 /scratch/
+
+# Studio (Electron / npm)
+node_modules/
+/studio/out/
+/studio/.vite/

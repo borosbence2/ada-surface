@@ -18,8 +18,9 @@ reading a report; they are bad at producing exact G2 geometry. So in ADA:
   symmetry exactly;
 - the **quality report** (continuity, curvature, highlight-line wiggle, CV-hull
   cleanliness) closes the loop. The agent reads it and explains it;
-- the **viewer** shows the result live, and picking in the viewer lets you say
-  "make *this* edge G2";
+- **ADA Studio** (Electron) shows the result live with zebra, highlight-line
+  and curvature diagnostics, hosts the chat, and lets you pick an edge and say
+  "make *this* edge G2". Claude Code can drive the same kernel instead;
 - **IGES export** takes the result into NX for verification and downstream work.
 
 It starts with the easy cases (single patches, curvature-continuous blends,
@@ -31,5 +32,5 @@ small symmetric all-quad networks such as a hood or roof) and grows from there.
 |---|---|
 | `ada_core` | Geometry kernel: Bézier surfaces, constraints, solver, analysis |
 | `ada` | CLI: solve, report, bench, export |
-| `ada-mcp` | MCP server exposing the kernel to an agent |
-| `ada-view` | Polyscope viewer with hot reload and selection |
+| `ada-mcp` | MCP server exposing the kernel to an agent and to Studio |
+| `studio/` | ADA Studio: Electron app (React + three.js) with viewport, diagnostics and chat |
