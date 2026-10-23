@@ -1,0 +1,35 @@
+# Build trees
+/build/
+/out/
+cmake-build-*/
+
+# CMake / FetchContent
+CMakeUserPresets.json
+/_deps/
+
+# Generated output (bench scorecards, eval transcripts, exports)
+/results/
+
+# Viewer <-> agent selection handoff (runtime state)
+selection.json
+
+# Editors / IDEs
+.vscode/
+.vs/
+.idea/
+*.user
+
+# OS
+Thumbs.db
+ehthumbs.db
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Stray archives / scratch
+*.zip
+/scratch/

@@ -1,0 +1,310 @@
+# ADA Surface — plan and milestones
+
+**ADA = AI-Driven A-surfacing.** An intent-driven ("vibe") Class-A surfacing
+tool. The designer states intent with curves, a target shape and plain language.
+An LLM agent turns that intent into operations on a **deterministic,
+constraint-solving surface kernel**. The kernel guarantees the geometry, a
+quality report checks it, and the designer watches the result in a live viewer
+and exports to NX for verification and downstream work.
+
+This file is the live task graph. Update the checkboxes and the `## Progress`
+section as work lands, not at the end.
+
+---
+
+## 1. Thesis and design rule
+
+Class-A surfacing time goes into two places: **layout decisions** (patch
+boundaries, degrees, span counts) and **inspection loops** (highlight lines,
+zebra stripes, curvature combs, nudging CVs, checking again). LLMs are good at
+translating intent and at reasoning about a report. They are bad at producing
+exact G2 geometry. So:
+
+> **The agent never writes control points.** It picks recipes, constraints,
+> weights and parameters. All geometry comes out of the solver. Every geometry
+> change is followed by a quality report that the agent reads and explains.
+
+What sets this apart from what is already out there: Alias Form Explorer
+generates concept SubD, Vizcom does sketch to render or 3D, and Design Copilot
+NX is a documentation assistant. None of them helps rebuild a concept as
+production surfaces, which is the target here.
+
+## 2. Scope: the case ladder
+
+ADA is built bottom-up through difficulty levels. A level counts as done only
+when its benchmark cases pass their quality budgets in CI **and** the exported
+geometry checks out in NX.
+
+| Level | Case | Typical part | Phase |
+|---|---|---|---|
+| **L0** | One untrimmed Bézier patch from 4 boundary curves, fair interior; optionally G1/G2 mirror-symmetric across Y=0 | Centre section of a roof or hood | 1 |
+| **L1** | One patch with G1/G2 to fixed neighbours along full shared edges | Curvature-continuous blend between two fixed surfaces | 1 |
+| **L2** | Small all-quad networks (2×1, 2×2, 3×3) with matched edges, internal G2 and Y=0 symmetry | Hood, roof, door skin without features | 1 |
+| **L3** | L2 fitted to a target mesh or point cloud within a deviation tolerance, using as few CVs as possible | Hood rebuilt from a scan or a SubD concept | 3 |
+| L4 | Character lines with controlled sharpness, feature lines that fade out | Shoulder line, fading crease | later |
+| L5 | 3- and 5-sided corners, trimmed surfaces, set-back fillets, flanges | Most of a real body side | later |
+
+**Why L0–L3 are "easy".** Patches are polynomial single-span Bézier patches,
+and neighbours share degree and parameterization along shared edges. Under
+those conditions the sufficient G1/G2 conditions are **linear in the CVs**
+once the scale factors are fixed (section 4), so the whole problem becomes a
+small linear least-squares problem with equality constraints. L4/L5 break that
+assumption.
+
+## 3. Architecture
+
+```
+core/          ada::core: geometry kernel. No graphics, no network.
+  geom/        Bézier/B-spline curves and surfaces, degree elevation, split,
+               boundary and cross-boundary CV rows (NURBS basics vendored
+               from nurbs2subd, see D4)
+  constraint/  fixed edges, G0–G2 edge pairs, Y=0 symmetry, pinned CVs
+  solve/       fairness + fit + minimal-change energy, linear equality
+               constraints, KKT solve (Eigen)
+  analysis/    curvature, highlight/isophote fields + contour extraction,
+               edge continuity measurement, CV-hull metrics, quality report
+  fit/         target sampling, closest point, parameter correction (Phase 3)
+  doc/         scene document: units, tolerances, entities, recipes,
+               constraints, history; JSON IO
+  io/          IGES 128 writer, OBJ/STL target reader
+apps/
+  ada          CLI: solve a scene, print/write the quality report, export, bench
+  ada-mcp      MCP stdio server: kernel operations as tools over one scene file
+  ada-view     Polyscope viewer: hot reload, diagnostics, selection bridge
+agent/         craft guide (Claude Code skill) + intent eval tasks
+cases/         benchmark scenes L0–L3 with quality budgets
+tests/         Catch2, mirrors core/
+```
+
+**The agent loop.** Claude Code (or any MCP client) runs `ada-mcp`, which owns
+`<name>.ada.json`. Every tool call loads the scene, applies the operation,
+solves, writes the file and returns a short quality summary. `ada-view` watches
+the same file and reloads when it changes. When the designer picks an edge or
+patch in the viewer, the viewer writes `selection.json`, and the agent reads it
+through a tool. That makes requests like "make *this* edge G2" work.
+Undo is a snapshot stack in the document. The scene file is plain JSON, so git
+history works as design history.
+
+**The scene is recipe-based, not a pile of CVs.** A patch stores how it was made
+(`from_boundaries`, `blend`, `network`, `fit_target`) plus its constraints.
+`solve` recomputes the free CVs. The agent edits recipes and constraints, never
+coordinates. Manual CV nudges (later, from the viewer) enter the solver as soft
+targets, so constraints still hold.
+
+## 4. Geometry and quality definitions
+
+Units: **millimetres**, `double`. Z points up and **Y=0 is the vehicle centre
+plane**.
+
+**Primitive.** Polynomial (non-rational) tensor-product Bézier patches, degree
+3–7 in each direction, single span. Rational and multi-span geometry is only
+for import and export.
+
+**Continuity across a shared edge** (patch A at v=1, patch B at v=0, same
+u-degree and parameterization; derivatives taken in v):
+- G0: the boundary CV rows are identical (merged as one shared variable).
+- G1 (sufficient, constant α > 0): `B_v(u,0) = α · A_v(u,1)`, i.e. CV rows 0–1
+  of B are aligned with rows n−1..n of A at a fixed ratio.
+- G2 (sufficient, constants α, γ): `B_vv(u,0) = α² · A_vv(u,1) + γ · A_v(u,1)`.
+- With α and γ fixed, all of these are linear in the CVs. An optional outer
+  loop optimises α and γ. The general forms α(u), β(u) (shear) are deferred
+  to L4/L5.
+
+**Y=0 mirror symmetry** (patch edge v=0 lying in y=0):
+- G1: row 1 has the same x and z as row 0 (the cross-boundary derivative is
+  perpendicular to the plane).
+- G2: additionally `(B_{i,2} − 2B_{i,1} + B_{i,0}).y = 0`.
+- Both conditions are linear.
+
+**Fairness energies** are quadratic in the CVs and computed exactly through
+Bernstein Gram matrices:
+- E2 (thin plate): `∫ |S_uu|² + 2|S_uv|² + |S_vv|²`
+- E3 (linearised curvature variation): `∫ |S_uuu|² + 3|S_uuv|² + 3|S_uvv|² + |S_vvv|²`
+
+Both are parametric proxies, which is acceptable while parameterization is
+controlled (L0–L3).
+
+**Highlight field** (Beier & Chen 1994, plane-of-lights form). A light plane
+holds parallel light lines with direction E and spacing d along D. Take the
+surface normal line through P with direction N, and let Q be where it
+intersects the light plane. Then `s(u,v) = D·(Q − A₀)` and the highlight lines
+are the level sets `s = k·d`. The field does not depend on the view, so the
+CLI can compute and test it with no renderer. The view-dependent zebra and
+reflection lines are viewer-only (D6).
+
+**Quality report** (the contract; JSON, one per scene):
+
+| Group | Measure | Default budget |
+|---|---|---|
+| Edge G0 | max position gap | 0.001 mm |
+| Edge G1 | max normal angle deviation | 0.01° |
+| Edge G2 | max relative cross-boundary normal-curvature deviation | 1 % |
+| Symmetry | same as edge, against the mirrored patch | as above |
+| Surface | curvature extrema and sign changes in Gaussian/mean curvature over the patch | per case |
+| Highlights | highlight-line wiggle: curvature sign changes and max \|dκ/ds\| along extracted contours | per case |
+| CV hull | zig-zag count (sign changes of second differences along CV rows), max hull turning angle | 0 zig-zags |
+| Economy | degree per direction, CV count | per case |
+| Fit (L3) | max / RMS / 95th-percentile deviation to target | per case |
+
+The default budgets are **placeholders**. OEMs set their own tolerances and
+treat them as proprietary. Every budget is a named constant that a scene can
+override. Confirm realistic values with a practising Class-A modeller (see
+open questions).
+
+## 5. Decisions
+
+Status: **confirmed** = user decided; **proposed** = recommended default, may
+be changed before the milestone that depends on it starts.
+
+- **D1 Name** — ADA Surface, repo `ada-surface`, C++ namespace `ada`. *Confirmed.*
+- **D2 Visibility and licence** — private GitHub repo with no licence file
+  (all rights reserved) while the commercial question is open. Revisit before
+  anything goes public. *Proposed.*
+- **D3 Stack** — C++20, CMake ≥ 3.24 with presets, FetchContent at pinned tags,
+  Ninja. Same toolchain and CMake modules as nurbs2subd (including the MinGW
+  static-runtime workaround). *Proposed.*
+- **D4 NURBS basics** — vendor the `n2s/nurbs` subset (basis, knot vector,
+  curve, surface, differential, projection, knot insertion, tolerances) from
+  nurbs2subd at a recorded commit into `core/third_party/n2s/`, keeping its MIT
+  notice. n2s_core links OpenSubdiv and CDT, which ADA does not need yet, and
+  nurbs2subd's plan is strict enough that extracting a shared library there is
+  out of scope. Revisit (shared `n2s_nurbs` target) if both keep evolving.
+  *Proposed.*
+- **D5 Agent interface** — a hand-written MCP stdio server (JSON-RPC, tools only)
+  in C++ with nlohmann/json; no SDK dependency. Claude Code is the first client,
+  so no chat UI needs to be built for a long time. *Proposed.*
+- **D6 Viewer** — Polyscope first: it is proven in nurbs2subd, and scalar
+  quantities with fixed ranges and isolines cover curvature and highlight
+  fields. Later, a Vulkan viewer on forfun-graphics for view-dependent zebra and
+  reflection lines and a studio look. *Proposed.*
+- **D7 Primitive** — polynomial single-span Bézier patches with matched edges
+  for L0–L3 (section 4). *Proposed.*
+- **D8 Export** — a hand-written IGES writer (entity 128) first, since NX imports
+  it directly. STEP AP214/242 later through optional OpenCASCADE behind a CMake
+  option. *Proposed.*
+- **D9 Linear algebra** — Eigen 3.4, dense LDLT/QR at first. An L2 network is
+  only a few hundred CVs, so sparse solvers come only when a case needs them.
+  *Proposed.*
+
+## 6. Milestones
+
+### Phase 0 — Foundations
+
+#### M0 — Repository and build
+- [ ] CMake project, presets `dev` (Debug, sanitizers off-Windows), `release`, `ci`, `ci-nogfx`.
+- [ ] Port `CompilerWarnings`, `Sanitizers`, `GitVersion`, `Dependencies` modules from nurbs2subd.
+- [ ] FetchContent: Eigen 3.4, nlohmann/json, fmt, CLI11, Catch2 v3; Polyscope only for `ada-view`.
+- [ ] Empty `ada_core`, `ada`, `ada-mcp`, `ada-view` targets; one passing test.
+- [ ] `.clang-format`, `.editorconfig`; GitHub Actions on Windows (MSVC) and Linux (GCC, Clang).
+- Exit: CI green on all configurations.
+
+#### M1 — Geometry core
+- [ ] Vendor the n2s nurbs subset (D4), record the source commit in `core/third_party/n2s/SOURCE.md`.
+- [ ] Bézier curve and surface: de Casteljau evaluation, derivatives up to 3rd order.
+- [ ] Degree elevation, split at a parameter, boundary row and cross-boundary row extraction.
+- [ ] Single-span Bézier ↔ B-spline conversion (for export and for n2s algorithms).
+- Tests (oracle first): closed-form Bernstein evaluation; elevation and split leave the geometry unchanged (< 1e-12); derivatives against finite differences.
+- Exit: all tests pass.
+
+#### M2 — Analysis and quality report
+- [ ] Curvature fields (Gaussian, mean, principal) on a (u,v) grid.
+- [ ] Edge continuity measurement G0/G1/G2 sampled along shared edges and symmetry edges.
+- [ ] Highlight field `s(u,v)`, marching-squares contour extraction, highlight wiggle metric; isophotes.
+- [ ] CV-hull metrics, economy metrics.
+- [ ] Quality report JSON + pass/fail against named budgets; `ada report <scene>`.
+- Tests: two patches built C2 by construction measure ~0 on every check; moving one CV in row 2 breaks G2 but not G1; a cylinder's highlights are straight and evenly spaced; a sphere patch has constant curvature 1/r.
+- Exit: every report field has an oracle test that fails when the property is broken.
+
+#### M3 — Viewer v0
+- [ ] Load a scene; tessellate patches; show CV hulls, boundary curvature combs.
+- [ ] Scalar quantities with explicit fixed ranges: curvatures, highlight field with isolines.
+- [ ] Colour each edge green/amber/red by its continuity budget.
+- [ ] Hot reload on file change; picking writes `selection.json`.
+- Exit: editing the scene JSON by hand updates the viewer within a second. *Visual check by the user.*
+
+### Phase 1 — Easy cases, solved deterministically (L0–L2)
+
+#### M4 — Constrained solver
+- [ ] Unknowns = free CVs; energy = w_f·(E2 | E3) + w_m·‖x − x_prev‖² (minimal change, so edits stay local) [+ w_t·fit in Phase 3].
+- [ ] Linear equality constraints: fixed CVs, shared G0 rows, G1/G2 edge pairs (fixed α, γ), Y=0 G1/G2, pinned CVs.
+- [ ] KKT solve; report constraint residuals and conditioning; reject inconsistent constraint sets with a clear message.
+- [ ] Optional outer loop over α, γ (Gauss–Newton on the energy).
+- Tests: constraints hold to < 1e-10; with zero fairness weight and full constraints the result matches a hand-built C2 pair; changing w_m changes how far untouched CVs move.
+- Exit: a 3×3 network solves in < 50 ms in release.
+
+#### M5 — Scene document and recipes
+- [ ] Scene JSON: units, budgets, curves, patches with recipes, constraints, targets, history.
+- [ ] Recipe `from_boundaries`: degree-matched boundary curves → discrete Coons interior → solve.
+- [ ] Recipe `blend`: between edges of two fixed surfaces with G1/G2 on each side.
+- [ ] Recipe `network`: grid of patches from a curve network, shared edges merged.
+- [ ] Snapshot undo; JSON round trip leaves a scene unchanged.
+- Exit: every L0–L2 case is expressible as a scene file with no CVs written by hand.
+
+#### M6 — Case ladder, bench and NX check
+- [ ] Cases: `L0-roof-centre`, `L0s-roof-centre-sym`, `L1-g2-blend`, `L2-hood-2x2-sym`, `L2-panel-3x3`, each with a budget.
+- [ ] `ada bench cases/` → scorecard (markdown + JSON); runs in CI.
+- [ ] IGES 128 export; import into NX and check continuity with NX's own analysis tools; record the results in `docs/nx-verification.md`.
+- Exit: all cases pass their budgets in CI, and NX's continuity analysis agrees with our report within tolerance. *NX check by the user.*
+
+### Phase 2 — The vibe loop
+
+#### M7 — MCP server
+- [ ] stdio JSON-RPC: `initialize`, `tools/list`, `tools/call`; structured errors written for an agent to read.
+- [ ] Tools: `scene_new/open/summary`, `curve_from_points`, `patch_from_boundaries`, `patch_blend`, `network_from_curves`, `edge_constrain`, `symmetry_constrain`, `patch_set_degree`, `fairness_set`, `solve`, `quality_report`, `get_selection`, `undo`, `export_iges`.
+- [ ] No tool sets raw CV coordinates (design rule, section 1).
+- [ ] `claude mcp add ada -- ada-mcp --scene <file>` documented in README.
+- Exit: the L2 hood case can be built from scratch through tool calls alone.
+
+#### M8 — Craft guide and selection bridge
+- [ ] `agent/` skill: Class-A workflow (inspect → change → solve → report → explain), what each metric means, when to raise degree versus split, and when to stop and ask.
+- [ ] Selection bridge end to end: pick in the viewer, then the agent refers to "this edge".
+- Exit: a natural-language session builds a symmetric G2 roof, and the agent explains the final report correctly. *Session judged by the user.*
+
+#### M9 — Intent eval
+- [ ] 10–20 scripted intent tasks with success defined by the quality report (not by judging the transcript).
+- [ ] Runner using Claude Code headless (`claude -p`) with the ADA MCP server; transcripts and scorecards saved.
+- Exit: baseline success rate recorded; regressions visible from one run to the next.
+
+### Phase 3 — Fitting to targets (L3)
+
+#### M10 — Target fitting
+- [ ] Read OBJ/STL/PLY targets; sample points; closest-point parameter correction (n2s projection).
+- [ ] Fit term in the solver; deviation map in the viewer and report.
+- [ ] CV economy: start at a low degree and elevate (or split) until deviation is within budget.
+- Exit: synthetic targets (known Bézier + noise) are recovered within noise level at the original degree.
+
+#### M11 — Hood from real data
+- [ ] Source the target: the Cranfield DrivAer CAD packs (CC BY 4.0) or the TUM DrivAer CAD (on request; check its terms). Synthetic fallback either way.
+- [ ] Case `L3-hood-from-target`, runnable by the agent: "rebuild this hood, G2 at Y=0, 0.5 mm".
+- Exit: the case passes in the bench and exported surfaces pass the NX check.
+
+### Phase 4 — Learning (outline; to be detailed after Phase 2)
+
+- **R1 Learned critic.** Inject synthetic defects (bumps, CV zig-zags, broken
+  continuity, flat spots, curvature reversals) into clean surfaces and train a
+  model that predicts a defect heatmap from curvature and highlight fields or
+  rendered zebra images. Compare against the deterministic report; validate
+  against a practitioner's ratings.
+- **R2 Vision in the loop.** A `render_view` tool returns images to the agent.
+  Measure on the M9 eval whether seeing zebra improves results.
+- **R3 Layout proposal.** From a target mesh, propose feature lines and a quad
+  patch layout, so L3 works without a hand-made curve network.
+- **R4 SubD → Class-A.** Turn a concept SubD into a sparse Bézier network: the
+  reverse of nurbs2subd.
+
+### Out of scope until L0–L3 are solid
+Trimmed surfaces, non-quad corners, set-back fillets, flanges and hems, an NX
+plug-in beyond IGES/STEP plus an NX Open journal, an in-app chat UI, cloud,
+multi-user.
+
+## 7. Open questions
+
+- **NX access**: which NX version, and is it available for the M6/M11
+  verification step?
+- **Practitioner contact**: can a working Class-A modeller review the budgets
+  in section 4 and judge results? This is the most valuable outside input.
+- **Licence / commercial intent** (D2).
+
+## Progress
+
+- 2026-10-23 — Repo created (private), plan drafted. Next: confirm D2–D9, then M0.
