@@ -438,3 +438,7 @@ auto-update and code signing, cloud, multi-user.
   resource and has a build-only CSP; verified by running the packaged exe.
   Exit criterion left to the user: hand-edit a scene and watch Studio update;
   click to pick.
+- 2026-10-23 — M3 exit: the user ran Studio and reported "the app looks good".
+  CI caught one Clang-only `-Wdouble-promotion` error in the MCP test (float
+  mesh values passed as double); fixed by widening explicitly. A local Clang 19
+  build of every translation unit is now warning-free too.

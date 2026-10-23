@@ -45,10 +45,17 @@ McpServer initialised(ServerOptions options, const std::string& version = "2025-
     return server;
 }
 
-std::vector<float> floats(const json& base64) {
+/// Decodes a float32 payload and widens it explicitly, so the comparisons
+/// below run in double without implicit float promotion.
+std::vector<double> floats(const json& base64) {
     const std::vector<std::byte> bytes = ada::mcp::base64_decode(base64.get<std::string>());
-    std::vector<float> out(bytes.size() / sizeof(float));
-    std::memcpy(out.data(), bytes.data(), out.size() * sizeof(float));
+    std::vector<float> narrow(bytes.size() / sizeof(float));
+    std::memcpy(narrow.data(), bytes.data(), narrow.size() * sizeof(float));
+    std::vector<double> out;
+    out.reserve(narrow.size());
+    for (const float f : narrow) {
+        out.push_back(static_cast<double>(f));
+    }
     return out;
 }
 
@@ -204,8 +211,8 @@ TEST_CASE("tessellate returns meshes that lie on the patches", "[mcp][tools]") {
     REQUIRE(result.at("patches").size() == scene.patches.size());
 
     const json& front = result.at("patches")[0];
-    const std::vector<float> positions = floats(front.at("positions"));
-    const std::vector<float> uvs = floats(front.at("uvs"));
+    const std::vector<double> positions = floats(front.at("positions"));
+    const std::vector<double> uvs = floats(front.at("uvs"));
     const std::vector<std::uint32_t> indices = uints(front.at("indices"));
     REQUIRE(positions.size() == 3 * kGrid * kGrid);
     REQUIRE(uvs.size() == 2 * kGrid * kGrid);
