@@ -228,10 +228,10 @@ be changed before the milestone that depends on it starts.
 - Exit: CI green on all configurations, including the Studio job.
 
 #### M1 — Geometry core
-- [ ] Copy the n2s files M1 needs (D4) and start `core/third_party/n2s/SOURCE.md`.
-- [ ] Bézier curve and surface: de Casteljau evaluation, derivatives up to 3rd order.
-- [ ] Degree elevation, split at a parameter, boundary row and cross-boundary row extraction.
-- [ ] Single-span Bézier ↔ B-spline conversion (for export and for n2s algorithms).
+- [x] Copy the n2s files M1 needs (D4) and start `core/third_party/n2s/SOURCE.md`.
+- [x] Bézier curve and surface: de Casteljau evaluation, derivatives up to 3rd order.
+- [x] Degree elevation, split at a parameter, boundary row and cross-boundary row extraction.
+- [x] Single-span Bézier ↔ B-spline conversion (for export and for n2s algorithms).
 - Tests (oracle first): closed-form Bernstein evaluation; elevation and split leave the geometry unchanged (< 1e-12); derivatives against finite differences.
 - Exit: all tests pass.
 
@@ -371,3 +371,15 @@ auto-update and code signing, cloud, multi-user.
   the template's 0.41 pulled a critically vulnerable tinypool.
 - 2026-10-23 — **M0 exit met**: CI green on all 7 jobs (Linux GCC/Clang/ASan,
   Windows MSVC, clang-format, Studio on Windows + Linux).
+- 2026-10-23 — Studio checked by the user: it starts and shows the viewport.
+- 2026-10-23 — M1 done. `BezierCurve`, `BezierPatch` (+ `PatchDerivatives`
+  table to order 3, `Edge`, `edge_row`/`boundary`), `to_nurbs`/`to_bezier`.
+  Polygon operations live once in `src/geom/polygon_ops`, and patches reach u
+  through a transpose. Copied from n2s at `dea5d2e`: tolerances, knot vector,
+  basis, surface, binomial, plus the knot-vector and basis tests; upstream's
+  surface tests are not copied (they need `curve.hpp`) and are replaced by a
+  cross-library check against the Bézier code. Oracles: closed-form Bernstein
+  sums, exact power-basis derivatives, finite differences. 36 tests, and
+  mutation checks confirmed the suite fails when the hodograph factor or the
+  split is broken. Evaluation allocates scratch vectors per call; revisit if
+  tessellation (M3) or the solver (M4) shows it in a profile.
