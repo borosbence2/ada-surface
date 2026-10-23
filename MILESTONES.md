@@ -254,8 +254,8 @@ be changed before the milestone that depends on it starts.
 - Exit: every report field has an oracle test that fails when the property is broken.
 
 #### M3 — Kernel server and Studio v0
-- [ ] `ada-mcp` transport: stdio JSON-RPC with `initialize`, `tools/list`, `tools/call`; tools `scene_open`, `scene_summary`, `quality_report`.
-- [ ] `--ui-tools`: `tessellate` returns positions, normals, indices, (u,v) and per-vertex curvature and highlight fields as base64 little-endian arrays; `cv_hulls`; `boundary_combs`.
+- [x] `ada-mcp` transport: stdio JSON-RPC with `initialize`, `tools/list`, `tools/call`; tools `scene_open`, `scene_summary`, `quality_report`.
+- [x] `--ui-tools`: `tessellate` returns positions, normals, indices, (u,v) and per-vertex curvature and highlight fields as base64 little-endian arrays; `cv_hulls`; `boundary_combs`.
 - [ ] Studio main: start the sidecar, connect the MCP client, watch the scene file, re-tessellate on change; surface sidecar crashes in the UI.
 - [ ] Viewport: patches, CV hulls, boundary curvature combs, orbit camera, neutral studio lighting.
 - [ ] Diagnostic shaders: curvature colour maps with an explicit fixed range and a legend; highlight isolines from the kernel field (anti-aliased in screen space); zebra and reflection lines (view-dependent, shader only).
@@ -412,3 +412,10 @@ auto-update and code signing, cloud, multi-user.
   if they drift. 75 tests; 11 deliberate breakages of the measurements were
   all caught. `ada report` on the 2-patch example takes ~1.2 s in Debug,
   mostly highlight extraction.
+- 2026-10-23 — M3a: `ada-mcp` speaks MCP over stdio (revisions 2024-11-05 to
+  2025-11-25 negotiated; `structuredContent` from 2025-06-18, JSON text for
+  older clients). Tools: `scene_open`, `scene_summary`, `quality_report`;
+  with `--ui-tools` also `tessellate`, `cv_hulls`, `boundary_combs`. Tool
+  failures come back as `isError` results so an agent can read and correct
+  them. The server re-reads the scene file whenever its contents change.
+  Server logic is a library (`ada_mcp_server`) tested message by message.

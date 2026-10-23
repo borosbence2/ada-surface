@@ -70,6 +70,10 @@ struct QualityReport {
     bool pass = true;
 };
 
+/// The light the highlight analysis uses: the scene's own, or
+/// `default_light_plane` over the bounding box of all control points.
+LightPlane resolve_light(const Scene& scene);
+
 QualityReport compute_quality(const Scene& scene, const AnalysisSettings& settings = {});
 
 nlohmann::json to_json(const QualityReport& report);

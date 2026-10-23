@@ -11,6 +11,7 @@ add_executable(ada_tests
     geom/test_bezier_patch.cpp
     geom/test_convert.cpp
     geom/test_patch_evaluator.cpp
+    mcp/test_server.cpp
     support/panels.cpp
     support/panels.hpp
     support/polynomial.cpp
@@ -29,6 +30,7 @@ target_compile_definitions(ada_tests PRIVATE ADA_SOURCE_DIR="${PROJECT_SOURCE_DI
 
 target_link_libraries(ada_tests PRIVATE
     ada::core
+    ada::mcp_server
     Catch2::Catch2WithMain
     ada::warnings
     ada::sanitizers)

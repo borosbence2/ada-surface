@@ -29,7 +29,22 @@ std::string edge_name(const EdgeRef& ref) {
     return fmt::format("{}.{}", ref.patch, to_string(ref.edge));
 }
 
-LightPlane scene_light(const Scene& scene) {
+nlohmann::json to_json(const std::vector<Check>& checks) {
+    nlohmann::json out = nlohmann::json::array();
+    for (const Check& c : checks) {
+        out.push_back(
+            {{"name", c.name}, {"value", c.value}, {"budget", c.budget}, {"pass", c.pass}});
+    }
+    return out;
+}
+
+nlohmann::json vec3_json(const Vec3& v) {
+    return nlohmann::json::array({v.x(), v.y(), v.z()});
+}
+
+} // namespace
+
+LightPlane resolve_light(const Scene& scene) {
     if (scene.light.has_value()) {
         return *scene.light;
     }
@@ -47,25 +62,10 @@ LightPlane scene_light(const Scene& scene) {
     return default_light_plane(lo, hi);
 }
 
-nlohmann::json to_json(const std::vector<Check>& checks) {
-    nlohmann::json out = nlohmann::json::array();
-    for (const Check& c : checks) {
-        out.push_back(
-            {{"name", c.name}, {"value", c.value}, {"budget", c.budget}, {"pass", c.pass}});
-    }
-    return out;
-}
-
-nlohmann::json vec3_json(const Vec3& v) {
-    return nlohmann::json::array({v.x(), v.y(), v.z()});
-}
-
-} // namespace
-
 QualityReport compute_quality(const Scene& scene, const AnalysisSettings& settings) {
     QualityReport report;
     report.budgets = scene.budgets;
-    report.light = scene_light(scene);
+    report.light = resolve_light(scene);
     const Budgets& b = scene.budgets;
 
     std::map<std::string, PatchEvaluator> evaluators;
