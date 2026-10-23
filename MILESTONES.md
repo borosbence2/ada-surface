@@ -218,12 +218,13 @@ be changed before the milestone that depends on it starts.
 ### Phase 0 — Foundations
 
 #### M0 — Repository and build
-- [ ] CMake project, presets `dev` (Debug, sanitizers off-Windows), `release`, `ci`. (No `ci-nogfx`: the C++ build has no graphics at all.)
-- [ ] Port `CompilerWarnings`, `Sanitizers`, `GitVersion`, `Dependencies` modules from nurbs2subd.
-- [ ] FetchContent: Eigen 3.4, nlohmann/json, fmt, CLI11, Catch2 v3.
-- [ ] Empty `ada_core`, `ada`, `ada-mcp` targets; one passing test.
+- [x] CMake project, presets `dev` (Debug, sanitizers off-Windows), `release`, `ci`. (No `ci-nogfx`: the C++ build has no graphics at all.)
+- [x] Port `CompilerWarnings`, `Sanitizers`, `GitVersion`, `Dependencies` modules from nurbs2subd.
+- [x] FetchContent: Eigen 3.4, nlohmann/json, fmt, CLI11, Catch2 v3.
+- [x] Empty `ada_core`, `ada`, `ada-mcp` targets; one passing test.
 - [ ] `studio/` skeleton (D10): Forge + Vite + TS + React + three.js; a window with an empty viewport; `typecheck` and Vitest scripts.
-- [ ] `.clang-format`, `.editorconfig`; GitHub Actions on Windows (MSVC) and Linux (GCC, Clang), plus a Studio job (`npm ci`, typecheck, test, package).
+- [x] `.clang-format`, `.editorconfig`; GitHub Actions on Windows (MSVC) and Linux (GCC, Clang, ASan) + clang-format.
+- [ ] Studio CI job (`npm ci`, typecheck, test, package).
 - Exit: CI green on all configurations, including the Studio job.
 
 #### M1 — Geometry core
@@ -355,3 +356,7 @@ auto-update and code signing, cloud, multi-user.
 - 2026-10-23 — All decisions confirmed. D2: repo made public (licence open).
   D4 changed: copy individual nurbs2subd files on demand instead of a vendored
   subset. Next: M0.
+- 2026-10-23 — M0 kernel half done: CMake/presets/modules ported from
+  nurbs2subd with `ADA_` prefixes, `ada_core` + `ada` + `ada-mcp` + 2 tests,
+  green locally on MinGW GCC 14.2. Studio half blocked: the local Node is
+  v20.11 (EOL), and current Electron Forge tooling needs at least 20.12.

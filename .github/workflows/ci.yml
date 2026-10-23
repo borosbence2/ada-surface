@@ -1,0 +1,109 @@
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  kernel:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-gcc
+            os: ubuntu-latest
+            preset: ci
+            cc: gcc
+            cxx: g++
+          - name: linux-clang
+            os: ubuntu-latest
+            preset: ci
+            cc: clang
+            cxx: clang++
+          - name: windows-msvc
+            os: windows-latest
+            preset: ci
+            cc: cl
+            cxx: cl
+          # Debug build under ASan + UBSan.
+          - name: linux-asan
+            os: ubuntu-latest
+            preset: dev
+            cc: clang
+            cxx: clang++
+
+    env:
+      CC: ${{ matrix.cc }}
+      CXX: ${{ matrix.cxx }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # GitVersion.cmake wants a real commit, not a grafted shallow HEAD.
+          fetch-depth: 0
+
+      - name: Install Ninja (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build
+
+      - name: Install Ninja (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ninja -y --no-progress
+
+      - name: Set up MSVC environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Cache dependency tree
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.deps
+          # Anything that changes a pin, a dependency option, the compiler or
+          # the build type invalidates the cache outright; a partially matching
+          # dependency tree is harder to debug than a cold build.
+          key: deps-${{ matrix.name }}-${{ hashFiles('cmake/Dependencies.cmake', 'CMakePresets.json') }}
+
+      # FETCHCONTENT_BASE_DIR is a cache variable, not an environment variable,
+      # so it has to be passed on the command line. Keeping the dependency tree
+      # outside the build directory lets it be cached independently.
+      - name: Configure
+        run: cmake --preset ${{ matrix.preset }} -DFETCHCONTENT_BASE_DIR=${{ github.workspace }}/.deps
+
+      - name: Build
+        run: cmake --build --preset ${{ matrix.preset }}
+
+      - name: Test
+        run: ctest --preset ${{ matrix.preset }}
+
+      - name: Smoke-test the executables
+        run: |
+          ./build/${{ matrix.preset }}/bin/ada --version
+          ./build/${{ matrix.preset }}/bin/ada-mcp --version
+
+  format:
+    name: clang-format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Pinned to the version used locally. clang-format output drifts between
+      # major releases, and a check that fails on version drift rather than on
+      # real formatting problems is one people learn to ignore.
+      - name: Install clang-format
+        run: pipx install clang-format==19.1.7
+
+      - name: Check formatting
+        run: |
+          find core apps tests -type f \
+            \( -name '*.cpp' -o -name '*.hpp' -o -name '*.cpp.in' \) \
+            -print0 | xargs -0 clang-format --dry-run --Werror --style=file
