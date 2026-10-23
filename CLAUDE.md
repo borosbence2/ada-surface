@@ -21,7 +21,9 @@ constraint-solving Bézier surface kernel through MCP tools, and ADA Studio
 ## Stack
 - C++20, CMake ≥ 3.24 with presets, FetchContent at pinned tags, Ninja.
 - Eigen 3.4, nlohmann/json, fmt, CLI11, Catch2 v3.
-- NURBS basics vendored from nurbs2subd (`core/third_party/n2s/`, MIT notice kept).
+- Individual nurbs2subd files copied on demand into `core/third_party/n2s/`
+  (MIT notice kept; every file and local change listed in `SOURCE.md`).
+  nurbs2subd is never linked as a library.
 - `studio/`: Electron (Forge + Vite plugin), TypeScript strict, React, three.js,
   official MCP TypeScript SDK (client), Vitest. The npm dependency list is just
   as fixed as the C++ one: ask before adding a package.

@@ -174,50 +174,51 @@ be changed before the milestone that depends on it starts.
 
 - **D1 Name** — ADA Surface, repo `ada-surface`, C++ namespace `ada`. The app is
   **ADA Studio**. *Confirmed.*
-- **D2 Visibility and licence** — private GitHub repo with no licence file
-  (all rights reserved) while the commercial question is open. Revisit before
-  anything goes public. *Proposed.*
+- **D2 Visibility and licence** — **public** GitHub repo. Licence still open:
+  until a `LICENSE` file is added, the code is visible but all rights are
+  reserved. *Confirmed (public); licence pending.*
 - **D3 Stack** — C++20, CMake ≥ 3.24 with presets, FetchContent at pinned tags,
   Ninja. Same toolchain and CMake modules as nurbs2subd (including the MinGW
-  static-runtime workaround). *Proposed.*
-- **D4 NURBS basics** — vendor the `n2s/nurbs` subset (basis, knot vector,
-  curve, surface, differential, projection, knot insertion, tolerances) from
-  nurbs2subd at a recorded commit into `core/third_party/n2s/`, keeping its MIT
-  notice. n2s_core links OpenSubdiv and CDT, which ADA does not need yet, and
-  nurbs2subd's plan is strict enough that extracting a shared library there is
-  out of scope. Revisit (shared `n2s_nurbs` target) if both keep evolving.
-  *Proposed.*
+  static-runtime workaround). *Confirmed.*
+- **D4 NURBS basics** — nurbs2subd is **not** used as a library. Copy only the
+  individual files a milestone needs, when it needs them, into
+  `core/third_party/n2s/` (namespace `n2s` kept, MIT notice kept).
+  `SOURCE.md` there lists every copied file, the nurbs2subd commit it came
+  from and any local changes. Expected so far: knot vector, basis and surface
+  as oracles and for the single-span B-spline form (M1), differential geometry
+  (M2), closest-point projection (M11). The `nurbs/` files depend only on
+  Eigen, fmt and `n2s/tolerances.hpp`. *Confirmed.*
 - **D5 Agent interface** — a hand-written MCP stdio server (JSON-RPC, tools only)
   in C++ with nlohmann/json; no SDK dependency on the kernel side. Clients:
-  Claude Code first (M8), then an agent hosted inside Studio (M9). *Proposed.*
+  Claude Code first (M8), then an agent hosted inside Studio (M9). *Confirmed.*
 - **D6 UI** — **ADA Studio, an Electron app** (React + three.js), with the kernel
   running as a native sidecar process that Studio talks to over MCP. This
   replaces the earlier Polyscope-then-Vulkan viewer plan. three.js makes the
   view-dependent zebra and reflection shaders straightforward, which Polyscope
-  could not do. *Confirmed (Electron); the details in D10 are proposed.*
+  could not do. *Confirmed.*
 - **D7 Primitive** — polynomial single-span Bézier patches with matched edges
-  for L0–L3 (section 4). *Proposed.*
+  for L0–L3 (section 4). *Confirmed for now*; revisit at L4.
 - **D8 Export** — a hand-written IGES writer (entity 128) first, since NX imports
   it directly. STEP AP214/242 later through optional OpenCASCADE behind a CMake
-  option. *Proposed.*
+  option. *Confirmed.*
 - **D9 Linear algebra** — Eigen 3.4, dense LDLT/QR at first. An L2 network is
   only a few hundred CVs, so sparse solvers come only when a case needs them.
-  *Proposed.*
+  *Confirmed.*
 - **D10 Studio tooling** — Electron Forge with its Vite plugin, TypeScript
   (strict), React, three.js, the official MCP TypeScript SDK (client side),
   Vitest. No UI component kit and no state-management library to start with.
   Versions pinned via `package-lock.json`. Electron security defaults:
-  `contextIsolation` on, `nodeIntegration` off, renderer sandboxed. *Proposed.*
+  `contextIsolation` on, `nodeIntegration` off, renderer sandboxed. *Confirmed.*
 - **D11 WebAssembly kernel** — an Emscripten build of `ada_core` for a no-install
   browser demo (GitHub Pages). *Deferred*: it adds a toolchain and nothing
-  needs it before Phase 3.
+  needs it before Phase 3. *Confirmed (deferred).*
 
 ## 6. Milestones
 
 ### Phase 0 — Foundations
 
 #### M0 — Repository and build
-- [ ] CMake project, presets `dev` (Debug, sanitizers off-Windows), `release`, `ci`, `ci-nogfx`.
+- [ ] CMake project, presets `dev` (Debug, sanitizers off-Windows), `release`, `ci`. (No `ci-nogfx`: the C++ build has no graphics at all.)
 - [ ] Port `CompilerWarnings`, `Sanitizers`, `GitVersion`, `Dependencies` modules from nurbs2subd.
 - [ ] FetchContent: Eigen 3.4, nlohmann/json, fmt, CLI11, Catch2 v3.
 - [ ] Empty `ada_core`, `ada`, `ada-mcp` targets; one passing test.
@@ -226,7 +227,7 @@ be changed before the milestone that depends on it starts.
 - Exit: CI green on all configurations, including the Studio job.
 
 #### M1 — Geometry core
-- [ ] Vendor the n2s nurbs subset (D4), record the source commit in `core/third_party/n2s/SOURCE.md`.
+- [ ] Copy the n2s files M1 needs (D4) and start `core/third_party/n2s/SOURCE.md`.
 - [ ] Bézier curve and surface: de Casteljau evaluation, derivatives up to 3rd order.
 - [ ] Degree elevation, split at a parameter, boundary row and cross-boundary row extraction.
 - [ ] Single-span Bézier ↔ B-spline conversion (for export and for n2s algorithms).
@@ -342,7 +343,7 @@ auto-update and code signing, cloud, multi-user.
   verification step?
 - **Practitioner contact**: can a working Class-A modeller review the budgets
   in section 4 and judge results? This is the most valuable outside input.
-- **Licence / commercial intent** (D2).
+- **Licence** (D2): the repo is public; pick a licence or stay all-rights-reserved.
 
 ## Progress
 
@@ -351,3 +352,6 @@ auto-update and code signing, cloud, multi-user.
   with the kernel as an MCP sidecar, replacing the Polyscope/Vulkan viewer plan.
   The minimal MCP transport moved into M3, Studio chat added as M9, milestones
   renumbered to M0–M12, D10 (Studio tooling) and D11 (WASM, deferred) added.
+- 2026-10-23 — All decisions confirmed. D2: repo made public (licence open).
+  D4 changed: copy individual nurbs2subd files on demand instead of a vendored
+  subset. Next: M0.
