@@ -66,6 +66,16 @@ TEST_CASE("raising a row-2 control point fails exactly the G2 check", "[analysis
     CHECK(text.find("g2_relative") != std::string::npos);
 }
 
+TEST_CASE("the G1-only hood keeps G1 and symmetry but fails G2", "[analysis][quality]") {
+    const QualityReport report = ada::compute_quality(hood_scene_g1_only());
+    const auto& edge = report.edges[0];
+    CHECK(find_check(edge.checks, "g1_angle_deg")->pass);
+    CHECK_FALSE(find_check(edge.checks, "g2_relative")->pass);
+    for (const auto& s : report.symmetry) {
+        CHECK(s.pass);
+    }
+}
+
 TEST_CASE("budgets decide the verdict", "[analysis][quality]") {
     Scene loose = hood_scene_g2_broken();
     loose.budgets.g2_relative = 10.0;
@@ -169,10 +179,13 @@ TEST_CASE("the committed example scenes match their generators", "[doc][examples
           ada::scene_to_json(hood_scene()));
     CHECK(ada::scene_to_json(ada::read_scene(examples_dir() / "hood-g2-broken.ada.json")) ==
           ada::scene_to_json(hood_scene_g2_broken()));
+    CHECK(ada::scene_to_json(ada::read_scene(examples_dir() / "hood-g1-only.ada.json")) ==
+          ada::scene_to_json(hood_scene_g1_only()));
 }
 
 TEST_CASE("write the example scenes", "[.generate-examples]") {
     std::filesystem::create_directories(examples_dir());
     ada::write_scene(hood_scene(), examples_dir() / "hood.ada.json");
     ada::write_scene(hood_scene_g2_broken(), examples_dir() / "hood-g2-broken.ada.json");
+    ada::write_scene(hood_scene_g1_only(), examples_dir() / "hood-g1-only.ada.json");
 }

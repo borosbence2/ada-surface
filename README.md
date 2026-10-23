@@ -5,8 +5,9 @@ curves, a target shape and plain language, and an agent builds it. A
 deterministic Bézier kernel holds the continuity, and every result comes with
 a quality report.
 
-> Status: M0. The skeleton builds, but nothing useful runs yet. See
-> [MILESTONES.md](MILESTONES.md).
+> Status: M3. The kernel checks scenes against Class-A budgets, and Studio
+> shows them with zebra, highlight and curvature diagnostics. Nothing creates
+> geometry yet (that is M4/M5). See [MILESTONES.md](MILESTONES.md).
 
 ## Building
 
@@ -17,12 +18,28 @@ cmake --preset dev && cmake --build --preset dev
 ctest --preset dev
 ```
 
-Studio (Node 24 LTS):
+Check a scene from the command line (exit code 0 pass, 1 fail, 2 error):
+
+```
+./build/dev/bin/ada report cases/examples/hood.ada.json
+```
+
+Studio (Node 24 LTS; build the kernel first, Studio starts it as `ada-mcp`):
 
 ```
 cd studio
 npm ci
-npm start
+npm start -- -- --scene=../cases/examples/hood-g1-only.ada.json
+```
+
+Compare the two hood examples in Zebra mode: in `hood.ada.json` (G2 across
+the front/rear joint) the stripes flow through the joint; in
+`hood-g1-only.ada.json` (G1 only) they kink there.
+
+To drive the kernel from Claude Code instead (read-only tools for now):
+
+```
+claude mcp add ada -- <repo>/build/dev/bin/ada-mcp --scene <repo>/cases/examples/hood.ada.json
 ```
 
 ## Idea

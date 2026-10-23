@@ -256,13 +256,13 @@ be changed before the milestone that depends on it starts.
 #### M3 — Kernel server and Studio v0
 - [x] `ada-mcp` transport: stdio JSON-RPC with `initialize`, `tools/list`, `tools/call`; tools `scene_open`, `scene_summary`, `quality_report`.
 - [x] `--ui-tools`: `tessellate` returns positions, normals, indices, (u,v) and per-vertex curvature and highlight fields as base64 little-endian arrays; `cv_hulls`; `boundary_combs`.
-- [ ] Studio main: start the sidecar, connect the MCP client, watch the scene file, re-tessellate on change; surface sidecar crashes in the UI.
-- [ ] Viewport: patches, CV hulls, boundary curvature combs, orbit camera, neutral studio lighting.
-- [ ] Diagnostic shaders: curvature colour maps with an explicit fixed range and a legend; highlight isolines from the kernel field (anti-aliased in screen space); zebra and reflection lines (view-dependent, shader only).
-- [ ] Colour each edge green/amber/red from the quality report; report panel.
-- [ ] Picking writes `selection.json`.
-- [ ] Package `ada-mcp` with Studio (`extraResource`) and resolve the sidecar path in dev vs packaged builds.
-- [ ] Content-Security-Policy for packaged builds (dev keeps Vite's inline React-refresh preamble working).
+- [x] Studio main: start the sidecar, connect the MCP client, watch the scene file, re-tessellate on change; surface sidecar crashes in the UI.
+- [x] Viewport: patches, CV hulls, boundary curvature combs, orbit camera, neutral studio lighting.
+- [x] Diagnostic shaders: curvature colour maps with an explicit fixed range and a legend; highlight isolines from the kernel field (anti-aliased in screen space); zebra and reflection lines (view-dependent, shader only).
+- [x] Colour each edge green/amber/red from the quality report; report panel.
+- [x] Picking writes `selection.json`.
+- [x] Package `ada-mcp` with Studio (`extraResource`) and resolve the sidecar path in dev vs packaged builds.
+- [x] Content-Security-Policy for packaged builds (dev keeps Vite's inline React-refresh preamble working).
 - Exit: editing the scene JSON by hand updates Studio within a second. Zebra stripes run continuously across a C2 pair and visibly kink across a G1-only pair. *Visual check by the user.*
 
 ### Phase 1 — Easy cases, solved deterministically (L0–L2)
@@ -419,3 +419,22 @@ auto-update and code signing, cloud, multi-user.
   failures come back as `isError` results so an agent can read and correct
   them. The server re-reads the scene file whenever its contents change.
   Server logic is a library (`ada_mcp_server`) tested message by message.
+- 2026-10-23 — M3b–d: Studio talks to `ada-mcp --ui-tools` through the
+  official MCP TypeScript SDK (pinned 1.32.1; 1.32.2 was hours old). Main
+  process: sidecar lifecycle with crash reporting and restart, scene loading
+  (serialised), directory watch with debounce for hot reload, selection.json
+  next to the scene, last scene remembered. Renderer: one surface shader
+  with shaded / zebra / reflection lines / highlight lines (kernel field) /
+  mean and Gaussian curvature (fixed range set as a radius, legend shown;
+  colormap defined once in TS, GLSL generated); CV hulls, boundary combs,
+  edges coloured by report status; report panel; click picking (edge within
+  5 % of a side). `--scene=`, `--view=` and `--screenshot=` let Studio open a
+  scene in a mode, capture itself and quit, which is how the shaders were
+  checked before handing over. New example `hood-g1-only` (rear row 2 raised
+  15 mm): G1 and symmetry pass, G2 fails at 144 %, and the zebra kink is
+  plain to see, unlike `hood-g2-broken` (one CV, 4 mm), which is subtle at
+  full-part zoom. Default zebra density raised to 64 stripes (24 was too
+  sparse for near-flat panels). Packaged app ships `ada-mcp` as an extra
+  resource and has a build-only CSP; verified by running the packaged exe.
+  Exit criterion left to the user: hand-edit a scene and watch Studio update;
+  click to pick.

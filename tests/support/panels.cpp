@@ -132,4 +132,14 @@ Scene hood_scene_g2_broken() {
     return scene;
 }
 
+Scene hood_scene_g1_only() {
+    Scene scene = hood_scene();
+    // Every row-2 point moves by the same amount, so rows 0 and 1 of the
+    // centre-line edge still differ only in y: the mirror join stays G1.
+    for (std::size_t i = 0; i <= 3; ++i) {
+        scene.patches[1].patch.control_point(i, 2).z() += 15.0;
+    }
+    return scene;
+}
+
 } // namespace ada::test

@@ -48,4 +48,9 @@ Scene hood_scene();
 /// still G1 at the joint, no longer G2.
 Scene hood_scene_g2_broken();
 
+/// `hood_scene` with the rear patch's whole row 2 raised 15 mm: G1 and mirror
+/// symmetry intact, curvature continuity broken along the entire joint. The
+/// visual counterpart of `hood_scene`: zebra stripes kink across the joint.
+Scene hood_scene_g1_only();
+
 } // namespace ada::test

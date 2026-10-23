@@ -49,7 +49,10 @@ constraint-solving Bézier surface kernel through MCP tools, and ADA Studio
 - `ada bench cases/` must stay green; a change that worsens a case's scorecard
   needs a stated reason in the commit message.
 - Warnings are errors (`/W4`, `-Wall -Wextra -Wpedantic`).
-- Visual output can't be verified by tools: say so and ask the user to look.
+- Look at visual output before handing it over: Studio can capture itself
+  (`npm start -- -- --scene=<file> --view=zebra --screenshot=<png>` opens the
+  scene in that mode, saves the window and quits). Interaction (orbit, picking,
+  hot reload) still needs the user: say so and ask.
 
 ## Commands
 ```
@@ -60,7 +63,7 @@ ctest --preset dev --output-on-failure
 ./build/dev/bin/ada bench cases/                             # from M6
 
 npm --prefix studio ci
-npm --prefix studio start          # from M3 expects ./build/dev/bin/ada-mcp
+npm --prefix studio start          # needs a built kernel (build/release or build/dev)
 npm --prefix studio run lint && npm --prefix studio run typecheck && npm --prefix studio test
 npm --prefix studio run package    # unpacked app in studio/out/
 ```
