@@ -10,7 +10,9 @@
   },
   "main": ".vite/build/main.cjs",
   "scripts": {
+    "prestart": "node scripts/check-node.cjs",
     "start": "electron-forge start",
+    "prepackage": "node scripts/check-node.cjs",
     "package": "electron-forge package",
     "make": "electron-forge make",
     "lint": "oxlint && oxfmt --check",
