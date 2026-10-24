@@ -203,6 +203,15 @@ input[type='number'] {
   white-space: pre-wrap;
 }
 
+.banner--info {
+  background: #22344a;
+  border: 1px solid #5b7a99;
+}
+
+.status-bar__notice {
+  color: var(--text);
+}
+
 .banner--error {
   background: #4a2224;
   border: 1px solid var(--fail);

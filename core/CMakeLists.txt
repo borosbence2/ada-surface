@@ -20,12 +20,15 @@ add_library(ada_core STATIC
     include/ada/analysis/quality.hpp
     include/ada/analysis/sampling.hpp
     include/ada/build_info.hpp
+    include/ada/doc/history.hpp
+    include/ada/doc/recipes.hpp
     include/ada/doc/scene.hpp
     include/ada/geom/bezier_curve.hpp
     include/ada/geom/bezier_patch.hpp
     include/ada/geom/closest_point.hpp
     include/ada/geom/continuity.hpp
     include/ada/geom/convert.hpp
+    include/ada/geom/curve_fit.hpp
     include/ada/geom/patch_evaluator.hpp
     include/ada/geom/vec.hpp
     include/ada/solve/constraints.hpp
@@ -41,12 +44,15 @@ add_library(ada_core STATIC
     src/analysis/highlight.cpp
     src/analysis/quality.cpp
     src/analysis/sampling.cpp
+    src/doc/history.cpp
+    src/doc/recipes.cpp
     src/doc/scene.cpp
     src/geom/bezier_curve.cpp
     src/geom/bezier_patch.cpp
     src/geom/closest_point.cpp
     src/geom/continuity.cpp
     src/geom/convert.cpp
+    src/geom/curve_fit.cpp
     src/geom/patch_evaluator.cpp
     src/geom/polygon_ops.cpp
     src/geom/polygon_ops.hpp

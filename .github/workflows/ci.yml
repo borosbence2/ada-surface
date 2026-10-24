@@ -100,6 +100,15 @@ jobs:
           $ada report cases/examples/hood-g2-broken.ada.json; test $? -eq 1 || exit 1
           $ada report cases/examples/missing.ada.json; test $? -eq 2 || exit 1
 
+      # Every authored case solves and passes (M5 exit).
+      - name: Solve the cases
+        shell: bash
+        run: |
+          mkdir -p results
+          for scene in cases/*.ada.json; do
+            ./build/${{ matrix.preset }}/bin/ada solve "$scene" -o "results/$(basename "$scene")"
+          done
+
   studio:
     name: studio-${{ matrix.os }}
     runs-on: ${{ matrix.os }}

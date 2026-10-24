@@ -5,9 +5,10 @@ curves, a target shape and plain language, and an agent builds it. A
 deterministic Bézier kernel holds the continuity, and every result comes with
 a quality report.
 
-> Status: M3. The kernel checks scenes against Class-A budgets, and Studio
-> shows them with zebra, highlight and curvature diagnostics. Nothing creates
-> geometry yet (that is M4/M5). See [MILESTONES.md](MILESTONES.md).
+> Status: M5. Scenes are written as curves through points plus recipes;
+> `ada solve` turns them into G2-continuous Bézier surfaces, and Studio shows
+> and checks them. The agent's editing tools come next (M7). See
+> [MILESTONES.md](MILESTONES.md).
 
 ## Building
 
@@ -18,10 +19,12 @@ cmake --preset dev && cmake --build --preset dev
 ctest --preset dev
 ```
 
-Check a scene from the command line (exit code 0 pass, 1 fail, 2 error):
+Solve a scene and check it from the command line (exit code 0 pass, 1 fail,
+2 error). The files in `cases/` hold only curves through points and recipes:
 
 ```
-./build/dev/bin/ada report cases/examples/hood.ada.json
+./build/dev/bin/ada solve cases/L2-hood-2x2-sym.ada.json -o results/hood.ada.json
+./build/dev/bin/ada report results/hood.ada.json
 ```
 
 Studio (Node 24 LTS; build the kernel first, Studio starts it as `ada-mcp`):
@@ -32,11 +35,13 @@ npm ci
 npm start -- -- --scene=../cases/examples/hood-g1-only.ada.json
 ```
 
-Compare the two hood examples in Zebra mode: in `hood.ada.json` (G2 across
-the front/rear joint) the stripes flow through the joint; in
-`hood-g1-only.ada.json` (G1 only) they kink there.
+Open a file from `cases/` and press **Solve**. It writes the solved control
+points back into that file; `git checkout cases/` returns it to the authored
+version, which the tests check. Compare the two hood examples in `cases/examples/` in Zebra mode:
+in `hood.ada.json` (G2 across the front/rear joint) the stripes flow through
+the joint; in `hood-g1-only.ada.json` (G1 only) they kink there.
 
-To drive the kernel from Claude Code instead (read-only tools for now):
+To drive the kernel from Claude Code instead (open, summarise, report, solve):
 
 ```
 claude mcp add ada -- <repo>/build/dev/bin/ada-mcp --scene <repo>/cases/examples/hood.ada.json

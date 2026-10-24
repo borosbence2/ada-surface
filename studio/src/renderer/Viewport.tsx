@@ -25,6 +25,8 @@ interface ViewportProps {
   options: DisplayOptions;
   selection: Selection | null;
   onPick: (selection: Selection | null) => void;
+  /** Called once a new bundle's first frame has been drawn. */
+  onRendered?: () => void;
 }
 
 /** Everything that lives as long as the viewport, created once on mount. */
@@ -66,12 +68,14 @@ function applyOptions(stage: Stage, options: DisplayOptions): void {
   objects.combs.visible = options.showCombs;
 }
 
-export function Viewport({ bundle, options, selection, onPick }: ViewportProps) {
+export function Viewport({ bundle, options, selection, onPick, onRendered }: ViewportProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Stage | null>(null);
   const bundleRef = useRef<SceneBundle | null>(null);
   const onPickRef = useRef(onPick);
   onPickRef.current = onPick;
+  const onRenderedRef = useRef(onRendered);
+  onRenderedRef.current = onRendered;
 
   // Mount: renderer, camera, controls, picking. Rendering is on demand;
   // nothing animates, so a frame is drawn only when something changes.
@@ -211,6 +215,11 @@ export function Viewport({ bundle, options, selection, onPick }: ViewportProps) 
     // The options effect below runs after this one and applies the current
     // display options to the new objects.
     stage.render();
+    if (bundle) {
+      // render() draws on the next animation frame; one frame after that the
+      // new scene is on screen.
+      requestAnimationFrame(() => requestAnimationFrame(() => onRenderedRef.current?.()));
+    }
   }, [bundle]);
 
   useEffect(() => {

@@ -41,12 +41,14 @@ make_light_plane(const Vec3& origin, const Vec3& normal, const Vec3& direction, 
     return LightPlane{origin, n, e, n.cross(e), spacing};
 }
 
-LightPlane default_light_plane(const Vec3& lo, const Vec3& hi) {
+LightPlane default_light_plane(const Vec3& lo, const Vec3& hi, const Vec3& facing) {
     const double diagonal = std::max((hi - lo).norm(), n2s::tol::kDegenerateDerivative);
     const Vec3 centre = 0.5 * (lo + hi);
-    const Vec3 origin(centre.x(), centre.y(), hi.z() + diagonal);
-    return make_light_plane(
-        origin, Vec3::UnitZ(), Vec3::UnitX(), diagonal / kDefaultLinesAcrossDiagonal);
+    const Vec3 half = 0.5 * (hi - lo);
+    const Vec3 normal = facing.normalized();
+    const Vec3 origin = centre + (half.cwiseAbs().dot(normal.cwiseAbs()) + diagonal) * normal;
+    const Vec3 lines = std::abs(normal.x()) > 0.9 ? Vec3::UnitZ() : Vec3::UnitX();
+    return make_light_plane(origin, normal, lines, diagonal / kDefaultLinesAcrossDiagonal);
 }
 
 double highlight_parameter(const LightPlane& light, const Vec3& point, const Vec3& unit_normal) {
@@ -95,7 +97,10 @@ highlight_lines(const PatchEvaluator& patch, const LightPlane& light, std::size_
     }
     std::vector<double> levels;
     if (lo <= hi) {
-        for (double k = std::ceil(lo / light.spacing); k * light.spacing <= hi; k += 1.0) {
+        constexpr double kHalfRange = kMaxHighlightLines / 2;
+        const double first = std::max(std::ceil(lo / light.spacing), -kHalfRange);
+        const double last = std::min(std::floor(hi / light.spacing), kHalfRange);
+        for (double k = first; k <= last; k += 1.0) {
             levels.push_back(k * light.spacing);
         }
     }

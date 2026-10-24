@@ -25,12 +25,24 @@ struct SolveWeights {
     double move = 0.0;
 };
 
+/// A strong pull of one control point towards a position, instead of a hard
+/// constraint: `weight * |P - target|^2` joins the energy (weights relative to
+/// the normalised fairness, like `move`). For inputs that should be followed
+/// where possible but must give way where continuity demands, such as a
+/// boundary curve's control points next to a G2 node.
+struct SoftTarget {
+    CvRef cv;
+    Vec3 target;
+    double weight;
+};
+
 struct SolveProblem {
     /// Current control points: the starting state, and what `move` pulls
     /// towards.
     std::vector<BezierPatch> patches;
     Constraints constraints;
     SolveWeights weights;
+    std::vector<SoftTarget> targets;
 };
 
 struct ConstraintResidual {

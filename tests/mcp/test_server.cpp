@@ -199,6 +199,39 @@ TEST_CASE("edits to the scene file are picked up on the next call", "[mcp][tools
     std::filesystem::remove(path);
 }
 
+TEST_CASE("solve turns an authored case into geometry and writes it back", "[mcp][tools]") {
+    const std::filesystem::path path =
+        std::filesystem::temp_directory_path() / "ada-mcp-test-solve.ada.json";
+    std::filesystem::copy_file(std::filesystem::path(ADA_SOURCE_DIR) / "cases" /
+                                   "L2-hood-2x2-sym.ada.json",
+                               path,
+                               std::filesystem::copy_options::overwrite_existing);
+    ServerOptions options;
+    options.scene = path;
+    McpServer server = initialised(options);
+
+    // Authored files hold recipes only: unsolved until solve runs.
+    CHECK(call(server, "quality_report").at("structuredContent").at("pass") == false);
+    CHECK(call(server, "scene_summary").at("structuredContent").at("patches")[0].at("solved") ==
+          false);
+
+    const json solved = call(server, "solve");
+    REQUIRE(solved.at("isError") == false);
+    CHECK(solved.at("structuredContent").at("report").at("pass") == true);
+    CHECK(solved.at("structuredContent").at("curves").size() == 12);
+
+    CHECK(call(server, "quality_report").at("structuredContent").at("pass") == true);
+    CHECK(ada::read_scene(path).patches[0].solved);
+
+    const json response = *server.handle(request(9, "tools/list"));
+    for (const json& tool : response.at("result").at("tools")) {
+        if (tool.at("name") == "solve") {
+            CHECK(tool.at("annotations").at("readOnlyHint") == false);
+        }
+    }
+    std::filesystem::remove(path);
+}
+
 TEST_CASE("tessellate returns meshes that lie on the patches", "[mcp][tools]") {
     ServerOptions options;
     options.ui_tools = true;

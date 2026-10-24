@@ -276,15 +276,15 @@ be changed before the milestone that depends on it starts.
 - Exit: a 3×3 network solves in < 50 ms in release.
 
 #### M5 — Scene document and recipes
-- [ ] Scene JSON: units, budgets, curves, patches with recipes, constraints, targets, history.
-- [ ] Recipe `from_boundaries`: degree-matched boundary curves → discrete Coons interior → solve.
-- [ ] Recipe `blend`: between edges of two fixed surfaces with G1/G2 on each side.
-- [ ] Recipe `network`: grid of patches from a curve network, shared edges merged.
-- [ ] Snapshot undo; JSON round trip leaves a scene unchanged.
-- Exit: every L0–L2 case is expressible as a scene file with no CVs written by hand.
+- [x] Scene JSON (format v1): units, budgets, curves (through points or control points), patches with recipes, edge/symmetry links, surface pins, solve settings. Targets wait for M11; undo history is a class here and reaches the MCP session in M7.
+- [x] Recipe `from_boundaries`: degree-matched boundary curves → discrete Coons interior → solve.
+- [x] Recipe `blend`: between edges of two fixed surfaces with G1/G2 on each side.
+- [x] Networks: `from_boundaries` patches over shared curves plus G2 edge links, solved jointly; `add_network` builds one from a curve grid. (A separate `network` recipe would only duplicate that.)
+- [x] Snapshot undo; JSON round trip leaves a scene unchanged.
+- Exit: every L0–L2 case is expressible as a scene file with no CVs written by hand. *Met: `cases/*.ada.json`.*
 
 #### M6 — Case ladder, bench and NX check
-- [ ] Cases: `L0-roof-centre`, `L0s-roof-centre-sym`, `L1-g2-blend`, `L2-hood-2x2-sym`, `L2-panel-3x3`, each with a budget.
+- [ ] Cases: `L0-roof-centre`, `L0s-roof-centre-sym`, `L1-g2-blend`, `L2-hood-2x2-sym`, `L2-panel-3x3`, each with a budget. *(Authored in M5; budgets still to set.)*
 - [ ] `ada bench cases/` → scorecard (markdown + JSON); runs in CI.
 - [ ] IGES 128 export (CLI and an export button in Studio); import into NX and check continuity with NX's own analysis tools; record the results in `docs/nx-verification.md`.
 - Exit: all cases pass their budgets in CI, and NX's continuity analysis agrees with our report within tolerance. *NX check by the user.*
@@ -292,7 +292,7 @@ be changed before the milestone that depends on it starts.
 ### Phase 2 — The vibe loop
 
 #### M7 — Agent toolset
-- [ ] Tools: `scene_new`, `curve_from_points`, `patch_from_boundaries`, `patch_blend`, `network_from_curves`, `edge_constrain`, `symmetry_constrain`, `patch_set_degree`, `fairness_set`, `solve`, `get_selection`, `undo`, `export_iges`.
+- [ ] Tools: `scene_new`, `curve_from_points`, `patch_from_boundaries`, `patch_blend`, `network_from_curves`, `edge_constrain`, `symmetry_constrain`, `patch_set_degree`, `fairness_set`, `get_selection`, `undo`, `export_iges`. (`solve` already exists, from M5.)
 - [ ] Structured errors written for an agent to read (what failed, which constraint, what to try).
 - [ ] No tool sets raw CV coordinates (design rule, section 1). UI-only tools stay behind `--ui-tools`.
 - [ ] `claude mcp add ada -- ada-mcp --scene <file>` documented in README.
@@ -460,3 +460,29 @@ auto-update and code signing, cloud, multi-user.
   release (target 50 ms), every joint measured G2. Studio now runs the most
   recently built kernel instead of preferring release (a stale release build
   had become a trap once one existed).
+- 2026-10-24 — M5 done. Scene format v1 (v0 still loads, as fixed patches):
+  curves through points (chord-length interpolation, least squares beyond
+  degree + 1 points, ends always exact), `from_boundaries` and `blend`
+  recipes, surface pins, solve settings, a `solved` flag (a recipe-only patch
+  carries its starting guess and fails the report as `unsolved`), canonical
+  writing so authored files round-trip unchanged, `History` for undo/redo.
+  `solve_scene` runs from_boundaries patches jointly, then blends in
+  dependency order with sources held; blends choose α per side so they cross
+  the gap at an even pace. **Design finding:** curves fitted one by one are
+  never smooth through the nodes of a network, and G2 across the joints
+  requires that, so holding every curve control point made every network and
+  every symmetric patch contradictory. The solver gained soft targets; curve
+  control points are hard except where a G1/G2 join or symmetry acts on them,
+  and the solve reports how far each curve gave way (0.1 mm for the symmetric
+  roof, ~0.6 mm at the hood-network nodes). Five cases authored in `cases/`
+  with points only; all solve in ≤ 7 ms and pass the default budgets. Two
+  analysis fixes the cases exposed: the CV-hull zig-zag test now ignores
+  bending components below 5 % of the row's largest bend (sideways leak from
+  a strong S-bend had registered as zig-zags on the L1 blend), and the default
+  highlight light faces the scene's dominant direction (the vertical door had
+  normals parallel to an overhead light plane, and the unbounded highlight
+  range hung the report; levels are now also capped at 200). Pulled forward
+  from M7: the `solve` MCP tool (writes the scene back) and Studio's Solve
+  button with an "unsolved" banner. Studio's `--screenshot` now waits for the
+  renderer to report a drawn scene instead of a fixed delay (a Vite reload in
+  dev had produced an empty capture).

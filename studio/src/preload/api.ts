@@ -1,4 +1,4 @@
-import type { KernelStatus, LoadResult, Selection, Startup } from '../shared/types';
+import type { KernelStatus, LoadResult, Selection, SolveOutcome, Startup } from '../shared/types';
 
 /** Shape of `window.ada`, the only API the preload script exposes to the renderer. */
 export interface AdaApi {
@@ -15,6 +15,10 @@ export interface AdaApi {
   chooseScene(): Promise<string | null>;
   /** Opens `path` in the kernel (or reloads the current scene) and fetches everything to draw. */
   loadScene(path?: string): Promise<LoadResult>;
+  /** Solves the open scene's recipes in the kernel, which writes the file back. */
+  solveScene(): Promise<SolveOutcome>;
+  /** Tells the main process a scene has been drawn (used by --screenshot). */
+  sceneRendered(): void;
   /** Writes selection.json next to the scene for the agent to read. */
   writeSelection(selection: Selection): Promise<void>;
   restartKernel(): Promise<void>;
@@ -29,7 +33,9 @@ export const Channels = {
   kernelStatusNow: 'ada:kernel-status-now',
   chooseScene: 'ada:choose-scene',
   loadScene: 'ada:load-scene',
+  solveScene: 'ada:solve-scene',
   writeSelection: 'ada:write-selection',
+  sceneRendered: 'ada:scene-rendered',
   restartKernel: 'ada:restart-kernel',
   kernelStatus: 'ada:kernel-status',
   sceneChanged: 'ada:scene-changed',

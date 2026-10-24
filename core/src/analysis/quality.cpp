@@ -1,5 +1,7 @@
 #include "ada/analysis/quality.hpp"
 
+#include "ada/analysis/differential.hpp"
+#include "ada/doc/recipes.hpp"
 #include "ada/geom/patch_evaluator.hpp"
 
 #include <fmt/format.h>
@@ -12,6 +14,9 @@
 namespace ada {
 
 namespace {
+
+/// Samples per patch side when finding which way a scene faces.
+constexpr int kFacingSamples = 4;
 
 Check at_most(std::string name, double value, double budget) {
     return {std::move(name), value, budget, value <= budget};
@@ -57,9 +62,31 @@ LightPlane resolve_light(const Scene& scene) {
         }
     }
     if (scene.patches.empty()) {
-        lo = hi = Vec3::Zero();
+        return default_light_plane(Vec3::Zero(), Vec3::Zero(), Vec3::UnitZ());
     }
-    return default_light_plane(lo, hi);
+
+    // Which way the surfaces mostly face: the axis carrying the largest share
+    // of their normals. The light goes on the side the part would be seen
+    // from: above for Z, outboard (the side the part is on) for Y, ahead for X.
+    Vec3 share = Vec3::Zero();
+    for (const ScenePatch& p : scene.patches) {
+        const PatchEvaluator e(p.patch);
+        for (int i = 0; i <= kFacingSamples; ++i) {
+            for (int j = 0; j <= kFacingSamples; ++j) {
+                const auto n = unit_normal(e.derivatives(static_cast<double>(i) / kFacingSamples,
+                                                         static_cast<double>(j) / kFacingSamples));
+                if (n.has_value()) {
+                    share += n->cwiseAbs();
+                }
+            }
+        }
+    }
+    Eigen::Index axis = 2;
+    share.maxCoeff(&axis);
+    Vec3 facing = Vec3::Zero();
+    const Vec3 centre = 0.5 * (lo + hi);
+    facing(axis) = axis == 1 && centre.y() < 0.0 ? -1.0 : 1.0;
+    return default_light_plane(lo, hi, facing);
 }
 
 QualityReport compute_quality(const Scene& scene, const AnalysisSettings& settings) {
@@ -84,6 +111,11 @@ QualityReport compute_quality(const Scene& scene, const AnalysisSettings& settin
         r.highlights = analyze_highlights(e, report.light, settings.highlight_grid);
         r.hull = analyze_cv_hull(e);
 
+        if (!p.solved) {
+            // Only the recipe's starting guess: nothing below means anything
+            // until `ada solve` has run.
+            r.checks.push_back(flag("unsolved", true));
+        }
         r.checks.push_back(at_most("cv_zigzag_rows",
                                    static_cast<double>(r.hull.zigzag_rows),
                                    static_cast<double>(b.max_zigzag_rows)));
@@ -113,7 +145,8 @@ QualityReport compute_quality(const Scene& scene, const AnalysisSettings& settin
         report.patches.push_back(std::move(r));
     }
 
-    for (const EdgeLink& link : scene.edges) {
+    // Explicit links and the ones recipes imply (a blend's joins).
+    for (const EdgeLink& link : all_edge_links(scene)) {
         EdgeReport r{link,
                      measure_edge(evaluators.at(link.a.patch),
                                   link.a.edge,

@@ -7,6 +7,8 @@ add_executable(ada_tests
     analysis/test_differential.cpp
     analysis/test_highlight.cpp
     analysis/test_quality.cpp
+    doc/test_cases.cpp
+    doc/test_recipes.cpp
     geom/test_bezier_curve.cpp
     geom/test_bezier_patch.cpp
     geom/test_convert.cpp
@@ -14,6 +16,8 @@ add_executable(ada_tests
     mcp/test_server.cpp
     solve/test_fairness.cpp
     solve/test_solver.cpp
+    support/cases.cpp
+    support/cases.hpp
     support/panels.cpp
     support/panels.hpp
     support/polynomial.cpp

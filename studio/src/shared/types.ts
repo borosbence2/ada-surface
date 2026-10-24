@@ -116,6 +116,17 @@ export interface SceneBundle {
 
 export type LoadResult = { ok: true; bundle: SceneBundle } | { ok: false; error: string };
 
+/** What the kernel's `solve` tool reports back (it also writes the scene file). */
+export type SolveOutcome =
+  | {
+      ok: true;
+      pass: boolean;
+      milliseconds: number;
+      /** Curves that had to give way for continuity, largest first. */
+      moved: { curve: string; max_mm: number }[];
+    }
+  | { ok: false; error: string };
+
 /** What the user picked in the viewport; written to selection.json for the agent. */
 export interface Selection {
   scene: string;

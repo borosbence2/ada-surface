@@ -80,6 +80,7 @@ private:
         std::string description;
         nlohmann::json input_schema;
         bool ui_only;
+        bool read_only;
         std::function<ToolResult(const nlohmann::json& arguments)> run;
     };
 

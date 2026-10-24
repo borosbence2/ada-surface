@@ -140,9 +140,15 @@ SolveResult solve(const SolveProblem& problem) {
         }
     }
 
-    const Eigen::MatrixXd energy =
-        w.fairness * fairness(problem.patches, layout, w.order) +
-        (w.move + tol::kSolverTieBreak) * Eigen::MatrixXd::Identity(n, n);
+    Eigen::MatrixXd energy = w.fairness * fairness(problem.patches, layout, w.order) +
+                             (w.move + tol::kSolverTieBreak) * Eigen::MatrixXd::Identity(n, n);
+    for (const SoftTarget& t : problem.targets) {
+        if (t.weight < 0.0) {
+            throw SolveError("soft target weights must be non-negative");
+        }
+        const Eigen::Index k = layout.index(problem.patches, t.cv);
+        energy(k, k) += t.weight;
+    }
 
     SolveResult result;
     result.patches = problem.patches;
@@ -193,7 +199,10 @@ SolveResult solve(const SolveProblem& problem) {
         // with b the pull towards the current control points.
         Eigen::VectorXd solution = particular;
         if (null_space.cols() > 0) {
-            const Eigen::VectorXd pull = (w.move + tol::kSolverTieBreak) * previous;
+            Eigen::VectorXd pull = (w.move + tol::kSolverTieBreak) * previous;
+            for (const SoftTarget& t : problem.targets) {
+                pull(layout.index(problem.patches, t.cv)) += t.weight * t.target(axis);
+            }
             const Eigen::MatrixXd reduced = null_space.transpose() * energy * null_space;
             const Eigen::VectorXd rhs = null_space.transpose() * (pull - energy * particular);
             const Eigen::LDLT<Eigen::MatrixXd> ldlt(reduced);

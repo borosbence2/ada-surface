@@ -79,6 +79,18 @@ void add_edge_join(Constraints& out,
                    const EdgeJoin& join,
                    const std::string& label);
 
+/// The surface passes through `target` at (u, v): `S(u, v) = sum B_i(u) B_j(v)
+/// P_ij = target`, a linear condition on all of the patch's control points.
+/// This is how a designer (or the agent) pushes a surface without touching
+/// control points.
+void add_surface_point(Constraints& out,
+                       std::size_t patch_index,
+                       const BezierPatch& patch,
+                       double u,
+                       double v,
+                       const Vec3& target,
+                       const std::string& label);
+
 /// Mirror symmetry in Y = 0 on `edge`: G0 puts row 0 in the plane; G1 also
 /// keeps row 1 directly behind row 0 in y (same x and z), which makes the
 /// cross-boundary derivative perpendicular to the plane. G2 adds nothing,

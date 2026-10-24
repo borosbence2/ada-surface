@@ -25,10 +25,12 @@ struct LightPlane {
 LightPlane
 make_light_plane(const Vec3& origin, const Vec3& normal, const Vec3& direction, double spacing);
 
-/// The default studio light for parts inside the box [lo, hi]: a horizontal
-/// plane one box diagonal above the top, light lines along vehicle X, 24 lines
+/// The default studio light for parts inside the box [lo, hi] whose surfaces
+/// mostly face along the unit axis `facing` (+Z for a hood or roof, +-Y for a
+/// door): a plane perpendicular to that axis, one box diagonal beyond the box,
+/// light lines along vehicle X (along Z when the part faces X), 24 lines
 /// across the box diagonal.
-LightPlane default_light_plane(const Vec3& lo, const Vec3& hi);
+LightPlane default_light_plane(const Vec3& lo, const Vec3& hi, const Vec3& facing);
 
 /// The highlight parameter `s`: where the normal line through `point` meets
 /// the light plane, measured along `across` from `origin`. Highlight lines are
@@ -40,10 +42,18 @@ double highlight_parameter(const LightPlane& light, const Vec3& point, const Vec
 /// `highlight_parameter` over a patch; NaN also where the normal is undefined.
 ScalarField highlight_field(const PatchEvaluator& patch, const LightPlane& light);
 
+/// Light lines a highlight analysis considers: as many as any real light
+/// source has, and a bound on the work when a surface turns edge-on to the
+/// light plane.
+inline constexpr int kMaxHighlightLines = 200;
+
 /// Isophote field `N . L` for a light direction L; level sets are isophotes.
 ScalarField isophote_field(const PatchEvaluator& patch, const Vec3& light_direction);
 
-/// The highlight lines on a patch: every level `k * spacing` the field reaches.
+/// The highlight lines on a patch: every level `k * spacing` the field reaches,
+/// at most `kMaxHighlightLines` of them around the light's origin. Where a
+/// normal runs nearly parallel to the light plane the parameter grows without
+/// bound, so the reachable levels can be unbounded too.
 std::vector<ContourLine>
 highlight_lines(const PatchEvaluator& patch, const LightPlane& light, std::size_t grid);
 

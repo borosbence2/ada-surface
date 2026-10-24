@@ -26,27 +26,23 @@ struct RowShape {
     double max_turn = 0.0; // radians
 };
 
-/// Counts sign changes of one bending component, ignoring components whose
-/// small-angle size falls below the noise floor.
-class SignChanges {
-public:
-    void add(double component, double mean_length) {
-        if (std::abs(component) / mean_length < tol::kHullTurnNoise) {
-            return;
+/// Sign changes along a sequence of bending components (small-angle sizes),
+/// ignoring those below `floor`.
+std::size_t sign_changes(const std::vector<double>& components, double floor) {
+    std::size_t count = 0;
+    int last_sign = 0;
+    for (const double c : components) {
+        if (std::abs(c) < floor) {
+            continue;
         }
-        const int sign = component > 0.0 ? 1 : -1;
-        if (last_sign_ != 0 && sign != last_sign_) {
-            ++count_;
+        const int sign = c > 0.0 ? 1 : -1;
+        if (last_sign != 0 && sign != last_sign) {
+            ++count;
         }
-        last_sign_ = sign;
+        last_sign = sign;
     }
-
-    std::size_t count() const { return count_; }
-
-private:
-    int last_sign_ = 0;
-    std::size_t count_ = 0;
-};
+    return count;
+}
 
 /// A row bends through its second differences `e1 - e0`. The component along
 /// the surface normal is bending up or down (out of the surface); the component
@@ -57,8 +53,9 @@ private:
 /// perpendicular to the normal and its sign there is rounding noise.
 RowShape analyze_row(const std::vector<Vec3>& points, const std::vector<Vec3>& normals) {
     RowShape shape;
-    SignChanges vertical;
-    SignChanges lateral;
+    std::vector<double> vertical;
+    std::vector<double> lateral;
+    double largest = 0.0;
     for (std::size_t k = 1; k + 1 < points.size(); ++k) {
         const Vec3 e0 = points[k] - points[k - 1];
         const Vec3 e1 = points[k + 1] - points[k];
@@ -72,10 +69,12 @@ RowShape analyze_row(const std::vector<Vec3>& points, const std::vector<Vec3>& n
         const Vec3 along = (e0 + e1).normalized();
         const Vec3 side = n.cross(along);
         const Vec3 bend = e1 - e0;
-        vertical.add(bend.dot(n), mean_length);
-        lateral.add(bend.dot(side), mean_length);
+        vertical.push_back(bend.dot(n) / mean_length);
+        lateral.push_back(bend.dot(side) / mean_length);
+        largest = std::max(largest, bend.norm() / mean_length);
     }
-    shape.inflections = std::max(vertical.count(), lateral.count());
+    const double floor = std::max(tol::kHullTurnNoise, tol::kHullRelativeNoise * largest);
+    shape.inflections = std::max(sign_changes(vertical, floor), sign_changes(lateral, floor));
     return shape;
 }
 

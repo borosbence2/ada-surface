@@ -118,8 +118,8 @@ std::pair<BezierPatch, BezierPatch> hood_pair() {
 Scene hood_scene() {
     auto [front, rear] = hood_pair();
     Scene scene;
-    scene.patches.push_back({"front", std::move(front)});
-    scene.patches.push_back({"rear", std::move(rear)});
+    scene.patches.push_back({"front", std::move(front), std::nullopt, true});
+    scene.patches.push_back({"rear", std::move(rear), std::nullopt, true});
     scene.edges.push_back({{"front", Edge::VMax}, {"rear", Edge::VMin}, Continuity::G2});
     scene.symmetry.push_back({{"front", Edge::UMin}, Continuity::G2});
     scene.symmetry.push_back({{"rear", Edge::UMin}, Continuity::G2});

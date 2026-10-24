@@ -98,7 +98,7 @@ TEST_CASE("E3 fairing rebuilds a total-degree-2 surface from its boundary", "[so
             scrambled.control_point(i, j) += Vec3(jitter(rng), jitter(rng), jitter(rng));
         }
     }
-    SolveProblem problem{{scrambled}, {}, {}};
+    SolveProblem problem{{scrambled}, {}, {}, {}};
     fix_boundary(problem.constraints, 0, scrambled);
     const SolveResult result = ada::solve(problem);
     CHECK(max_difference(result.patches[0], original) < kSameMm);
@@ -108,7 +108,7 @@ TEST_CASE("E3 fairing rebuilds a total-degree-2 surface from its boundary", "[so
 
 TEST_CASE("E2 fairing finds the lowest-energy interior", "[solve][solver]") {
     const BezierPatch original = dome();
-    SolveProblem problem{{original}, {}, {1.0, FairnessOrder::E2, 0.0}};
+    SolveProblem problem{{original}, {}, {1.0, FairnessOrder::E2, 0.0}, {}};
     fix_boundary(problem.constraints, 0, original);
     const SolveResult result = ada::solve(problem);
     const Eigen::MatrixXd f = ada::fairness_matrix(3, 3, FairnessOrder::E2);
@@ -141,7 +141,7 @@ TEST_CASE("with fairness off, full constraints rebuild the hand-built G2 neighbo
                 start.control_point(i, j) += Vec3(3.0, -2.0, 7.0);
             }
         }
-        SolveProblem problem{{a, start}, {}, {0.0, FairnessOrder::E3, 0.0}};
+        SolveProblem problem{{a, start}, {}, {0.0, FairnessOrder::E3, 0.0}, {}};
         fix_all(problem.constraints, 0, a, "A");
         ada::add_fixed_row(problem.constraints, 1, expected, Edge::VMax, 0, "B row 3");
         ada::add_edge_join(problem.constraints,
@@ -162,7 +162,7 @@ TEST_CASE("least-change repair undoes exactly the broken control point", "[solve
     const ada::Scene broken = hood_scene_g2_broken();
     const ada::Scene good = hood_scene();
     SolveProblem problem{
-        {broken.patches[0].patch, broken.patches[1].patch}, {}, {0.0, FairnessOrder::E3, 1.0}};
+        {broken.patches[0].patch, broken.patches[1].patch}, {}, {0.0, FairnessOrder::E3, 1.0}, {}};
     fix_all(problem.constraints, 0, problem.patches[0], "front");
     ada::add_edge_join(problem.constraints,
                        problem.patches,
@@ -188,7 +188,8 @@ TEST_CASE("the move weight trades fairness against staying put", "[solve][solver
     const ada::Scene scene = hood_scene_g1_only();
     const BezierPatch rear = scene.patches[1].patch.elevated_v(2);
     auto run = [&](double move) {
-        SolveProblem problem{{scene.patches[0].patch, rear}, {}, {1.0, FairnessOrder::E3, move}};
+        SolveProblem problem{
+            {scene.patches[0].patch, rear}, {}, {1.0, FairnessOrder::E3, move}, {}};
         fix_all(problem.constraints, 0, problem.patches[0], "front");
         ada::add_fixed_row(problem.constraints, 1, rear, Edge::VMax, 0, "rear far row");
         ada::add_edge_join(problem.constraints,
@@ -210,7 +211,7 @@ TEST_CASE("the symmetry constraint makes an edge mirror-G1", "[solve][solver]") 
     BezierPatch tilted = symmetric_panel();
     tilted.control_point(2, 1).z() += 4.0;
     tilted.control_point(1, 0).y() += 1.5;
-    SolveProblem problem{{tilted}, {}, {0.0, FairnessOrder::E3, 1.0}};
+    SolveProblem problem{{tilted}, {}, {0.0, FairnessOrder::E3, 1.0}, {}};
     ada::add_symmetry(problem.constraints, 0, tilted, Edge::VMin, Continuity::G2, "Y0");
     const SolveResult result = ada::solve(problem);
     const ada::SymmetryContinuity s =
@@ -222,7 +223,7 @@ TEST_CASE("the symmetry constraint makes an edge mirror-G1", "[solve][solver]") 
 TEST_CASE("contradicting constraints are reported by label", "[solve][solver]") {
     const BezierPatch a = domed_panel();
     BezierPatch b = g2_neighbour(a, 1.0, 0.0);
-    SolveProblem problem{{a, b}, {}, {}};
+    SolveProblem problem{{a, b}, {}, {}, {}};
     fix_all(problem.constraints, 0, a, "front fixed");
     // Hold B's boundary row 2 mm away from A's, then ask for G0 between them.
     for (std::size_t i = 0; i <= 3; ++i) {
@@ -300,7 +301,7 @@ TEST_CASE("a 3x3 network comes out G2 on every internal edge, fast", "[solve][so
         }
     }
 
-    SolveProblem problem{start, {}, {}};
+    SolveProblem problem{start, {}, {}, {}};
     for (std::size_t c = 0; c < 3; ++c) {
         ada::add_fixed_row(problem.constraints, c * 3 + 0, grid[c * 3 + 0], Edge::VMin, 0, "outer");
         ada::add_fixed_row(problem.constraints, c * 3 + 2, grid[c * 3 + 2], Edge::VMax, 0, "outer");

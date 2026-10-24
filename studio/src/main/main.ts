@@ -11,6 +11,7 @@ import type {
   PatchCombs,
   QualityReportJson,
   Selection,
+  SolveOutcome,
   Startup,
 } from '../shared/types';
 import { decodeTessellation } from './decode';
@@ -70,20 +71,19 @@ function startupScene(): string | null {
 }
 
 /**
- * --screenshot=<file.png>: capture the window once the first scene has been
- * drawn, then quit. Lets a script (or an agent) look at what Studio renders.
+ * --screenshot=<file.png>: capture the window once the renderer reports that
+ * a scene is on screen, then quit. Lets a script (or an agent) look at what
+ * Studio renders. Waiting for the renderer's signal rather than a timer
+ * matters in development, where Vite may reload the page while dependencies
+ * are re-optimised.
  */
 const screenshotPath = flag('screenshot');
-/** Time for the renderer to build and draw the scene after it receives it. */
-const kScreenshotDelayMs = 1500;
 
 function captureAndQuit(): void {
-  setTimeout(() => {
-    void window?.webContents.capturePage().then((image) => {
-      fs.writeFileSync(path.resolve(screenshotPath!), image.toPNG());
-      app.quit();
-    });
-  }, kScreenshotDelayMs);
+  void window?.webContents.capturePage().then((image) => {
+    fs.writeFileSync(path.resolve(screenshotPath!), image.toPNG());
+    app.quit();
+  });
 }
 
 function setKernelStatus(status: KernelStatus): void {
@@ -143,9 +143,6 @@ async function load(file?: string): Promise<LoadResult> {
       k.call('cv_hulls'),
       k.call('boundary_combs', { samples: kCombSamples }),
     ]);
-    if (screenshotPath) {
-      captureAndQuit();
-    }
     return {
       ok: true,
       bundle: {
@@ -156,6 +153,32 @@ async function load(file?: string): Promise<LoadResult> {
         combs: (combs as { patches: PatchCombs[] }).patches,
       },
     };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+/** Curve adjustments smaller than this are rounding; not worth showing. */
+const kReportedCurveDeviationMm = 1e-6;
+
+async function solveScene(): Promise<SolveOutcome> {
+  if (!kernel || kernelStatus.state !== 'ready') {
+    return { ok: false, error: 'the kernel is not running' };
+  }
+  if (!scenePath) {
+    return { ok: false, error: 'no scene is open' };
+  }
+  try {
+    await kernel.call('scene_open', { path: scenePath });
+    const result = (await kernel.call('solve')) as {
+      milliseconds: number;
+      curves: { curve: string; max_mm: number }[];
+      report: { pass: boolean };
+    };
+    const moved = result.curves
+      .filter((c) => c.max_mm > kReportedCurveDeviationMm)
+      .sort((a, b) => b.max_mm - a.max_mm);
+    return { ok: true, pass: result.report.pass, milliseconds: result.milliseconds, moved };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) };
   }
@@ -178,6 +201,18 @@ function registerIpc(): void {
     const next = loading.then(() => load(file));
     loading = next.catch(() => undefined);
     return next;
+  });
+
+  ipcMain.handle(Channels.solveScene, () => {
+    const next = loading.then(() => solveScene());
+    loading = next.catch(() => undefined);
+    return next;
+  });
+
+  ipcMain.on(Channels.sceneRendered, () => {
+    if (screenshotPath) {
+      captureAndQuit();
+    }
   });
 
   ipcMain.handle(Channels.writeSelection, (_event, selection: Selection) => {

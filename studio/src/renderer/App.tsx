@@ -80,6 +80,33 @@ export function App() {
 
   useEffect(() => window.ada.onSceneChanged(() => void load()), [load]);
 
+  const [solving, setSolving] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const solve = async () => {
+    setSolving(true);
+    setNotice(null);
+    const outcome = await window.ada.solveScene();
+    setSolving(false);
+    if (!outcome.ok) {
+      setError(outcome.error);
+      return;
+    }
+    const moved = outcome.moved[0];
+    setNotice(
+      `solved in ${outcome.milliseconds.toFixed(1)} ms` +
+        (moved
+          ? ` · ${outcome.moved.length} curve(s) adjusted for continuity, up to ${moved.max_mm.toFixed(3)} mm (${moved.curve})`
+          : ''),
+    );
+    // The kernel wrote the file; reload now rather than waiting for the watcher.
+    await load();
+  };
+
+  const unsolved =
+    bundle?.report.patches.some((p) => p.checks.some((c) => c.name === 'unsolved' && !c.pass)) ??
+    false;
+
   const open = async () => {
     const path = await window.ada.chooseScene();
     if (path) await load(path);
@@ -98,10 +125,18 @@ export function App() {
         onOpen={() => void open()}
         onReload={() => void load()}
         canReload={bundle !== null && kernel.state === 'ready'}
+        onSolve={() => void solve()}
+        canSolve={bundle !== null && kernel.state === 'ready' && !solving}
       />
       <main className="workspace">
         <div className="stage">
-          <Viewport bundle={bundle} options={options} selection={selection} onPick={pick} />
+          <Viewport
+            bundle={bundle}
+            options={options}
+            selection={selection}
+            onPick={pick}
+            onRendered={() => window.ada.sceneRendered()}
+          />
           <Legend options={options} onChange={setOptions} />
           {!bundle && kernel.state === 'ready' && !loading && (
             <div className="empty">
@@ -111,6 +146,14 @@ export function App() {
             </div>
           )}
           {error && <div className="banner banner--error">{error}</div>}
+          {!error && unsolved && (
+            <div className="banner banner--info">
+              This scene has unsolved patches: what you see is only their starting guess.
+              <button onClick={() => void solve()} disabled={solving}>
+                Solve
+              </button>
+            </div>
+          )}
           {kernel.state === 'stopped' && (
             <div className="banner banner--error">
               {kernel.message}
@@ -125,7 +168,9 @@ export function App() {
         <span className="status-bar__scene" title={bundle?.path}>
           {bundle ? fileName(bundle.path) : 'no scene'}
           {loading ? ' · loading…' : ''}
+          {solving ? ' · solving…' : ''}
         </span>
+        {notice && <span className="status-bar__notice">{notice}</span>}
         <span className="status-bar__right">
           {kernelLabel(kernel)} · Electron {window.ada.versions.electron}
         </span>

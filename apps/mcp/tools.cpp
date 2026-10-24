@@ -3,6 +3,7 @@
 #include "ada/analysis/differential.hpp"
 #include "ada/analysis/quality.hpp"
 #include "ada/analysis/sampling.hpp"
+#include "ada/doc/recipes.hpp"
 #include "ada/geom/patch_evaluator.hpp"
 
 #include "base64.hpp"
@@ -26,6 +27,9 @@ constexpr int kDefaultCombSamples = 33;
 constexpr int kMaxCombSamples = 513;
 
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
+
+/// Curve adjustments smaller than this are rounding, not worth a line.
+constexpr double kReportedCurveDeviationMm = 1e-6;
 
 int integer_argument(const nlohmann::json& args, const char* name, int fallback, int lo, int hi) {
     if (!args.contains(name)) {
@@ -59,7 +63,14 @@ nlohmann::json summary_json(const SceneSession& session, const Scene& scene) {
             lo = lo.cwiseMin(point);
             hi = hi.cwiseMax(point);
         }
+        nlohmann::json recipe = nullptr;
+        if (p.recipe.has_value()) {
+            recipe =
+                std::holds_alternative<FromBoundaries>(*p.recipe) ? "from_boundaries" : "blend";
+        }
         patches.push_back({{"id", p.id},
+                           {"recipe", recipe},
+                           {"solved", p.solved},
                            {"degree", {p.patch.degree_u(), p.patch.degree_v()}},
                            {"cv_count", p.patch.control_points().size()},
                            {"control_net_bounds", {{"min", vec3(lo)}, {"max", vec3(hi)}}}});
@@ -76,6 +87,7 @@ nlohmann::json summary_json(const SceneSession& session, const Scene& scene) {
             {{"edge", edge_name(link.edge)}, {"continuity", to_string(link.continuity)}});
     }
     return {{"path", session.path().generic_string()},
+            {"curves", scene.curves.size()},
             {"patches", std::move(patches)},
             {"edges", std::move(edges)},
             {"symmetry", std::move(symmetry)},
@@ -91,10 +103,14 @@ std::string summary_text(const nlohmann::json& summary) {
                                    summary.at("edges").size(),
                                    summary.at("symmetry").size());
     for (const auto& p : summary.at("patches")) {
-        text += fmt::format("\n  {} degree {}x{}",
-                            p.at("id").get<std::string>(),
-                            p.at("degree")[0].get<int>(),
-                            p.at("degree")[1].get<int>());
+        text +=
+            fmt::format("\n  {} degree {}x{}{}{}",
+                        p.at("id").get<std::string>(),
+                        p.at("degree")[0].get<int>(),
+                        p.at("degree")[1].get<int>(),
+                        p.at("recipe").is_null() ? std::string(" (fixed)")
+                                                 : " (" + p.at("recipe").get<std::string>() + ")",
+                        p.at("solved").get<bool>() ? "" : " UNSOLVED");
     }
     return text;
 }
@@ -128,6 +144,38 @@ ToolResult quality_report(SceneSession& session) {
     nlohmann::json json = to_json(report);
     json["scene"] = session.path().generic_string();
     return {format_report(report), std::move(json), false};
+}
+
+ToolResult solve(SceneSession& session) {
+    Scene scene = session.current();
+    const SceneSolveSummary summary = solve_scene(scene);
+    write_scene(scene, session.path());
+
+    nlohmann::json curves = nlohmann::json::array();
+    std::string moved;
+    for (const CurveDeviation& c : summary.curves) {
+        curves.push_back({{"curve", c.curve}, {"max_mm", c.max_mm}});
+        if (c.max_mm > kReportedCurveDeviationMm) {
+            moved +=
+                fmt::format("curve {} moved up to {:.3f} mm for continuity\n", c.curve, c.max_mm);
+        }
+    }
+    const QualityReport report = compute_quality(scene);
+    std::string text = fmt::format(
+        "solved {} ({} stages, {} unknowns, max residual {:.2e} mm, {:.1f} ms) and wrote it back\n",
+        session.path().generic_string(),
+        summary.stages,
+        summary.unknowns,
+        summary.max_residual,
+        summary.milliseconds);
+    text += moved + "\n" + format_report(report);
+    nlohmann::json structured = {{"stages", summary.stages},
+                                 {"unknowns", summary.unknowns},
+                                 {"max_residual_mm", summary.max_residual},
+                                 {"milliseconds", summary.milliseconds},
+                                 {"curves", std::move(curves)},
+                                 {"report", to_json(report)}};
+    return {std::move(text), std::move(structured), false};
 }
 
 ToolResult tessellate(SceneSession& session, const nlohmann::json& args) {

@@ -27,8 +27,9 @@ constexpr const char* kStructuredContentSince = "2025-06-18";
 constexpr const char* kInstructions =
     "ADA Surface kernel for Class-A surfacing. Open a scene with scene_open, inspect it with "
     "scene_summary, and run quality_report to check it against its budgets (continuity across "
-    "linked edges, symmetry at Y = 0, highlight lines, control-net shape). This build offers "
-    "read-only tools; geometry is never edited by writing control points.";
+    "linked edges, symmetry at Y = 0, highlight lines, control-net shape). solve turns the "
+    "scene's recipes into control points and writes them back; geometry is never edited by "
+    "writing control points directly.";
 
 nlohmann::json error_response(const nlohmann::json& id, int code, const std::string& message) {
     return {{"jsonrpc", "2.0"}, {"id", id}, {"error", {{"code", code}, {"message", message}}}};
@@ -112,6 +113,7 @@ void McpServer::register_tools() {
            {{"path", {{"type", "string"}, {"description", "Path to the scene file"}}}}},
           {"required", {"path"}}},
          false,
+         true,
          [this](const nlohmann::json& args) { return scene_open(session_, args); }});
     tools_.push_back({"scene_summary",
                       "List the open scene's patches (degrees, control-point counts, bounding "
@@ -119,6 +121,7 @@ void McpServer::register_tools() {
                       "symmetry links and budgets.",
                       empty_schema(),
                       false,
+                      true,
                       [this](const nlohmann::json&) { return scene_summary(session_); }});
     tools_.push_back({"quality_report",
                       "Check the open scene against its Class-A budgets: G0/G1/G2 across linked "
@@ -126,7 +129,18 @@ void McpServer::register_tools() {
                       "curvature. Lists every failed check with its value and budget.",
                       empty_schema(),
                       false,
+                      true,
                       [this](const nlohmann::json&) { return quality_report(session_); }});
+    tools_.push_back(
+        {"solve",
+         "Solve the open scene: turn its recipes (from_boundaries, blend) into control "
+         "points under its edge links, symmetry and pins, write them back to the scene "
+         "file, and run the quality report. Reports how far any boundary curve had to "
+         "move to meet the continuity asked for.",
+         empty_schema(),
+         false,
+         false,
+         [this](const nlohmann::json&) { return solve(session_); }});
     tools_.push_back({"tessellate",
                       "Studio: triangle meshes of every patch with normals, (u, v), Gaussian and "
                       "mean curvature and the highlight parameter per vertex.",
@@ -138,10 +152,12 @@ void McpServer::register_tools() {
                            {"maximum", 257},
                            {"description", "Vertices per patch side (default 49)"}}}}}},
                       true,
+                      true,
                       [this](const nlohmann::json& args) { return tessellate(session_, args); }});
     tools_.push_back({"cv_hulls",
                       "Studio: every patch's control net.",
                       empty_schema(),
+                      true,
                       true,
                       [this](const nlohmann::json&) { return cv_hulls(session_); }});
     tools_.push_back(
@@ -154,6 +170,7 @@ void McpServer::register_tools() {
               {"minimum", 2},
               {"maximum", 513},
               {"description", "Samples per edge (default 33)"}}}}}},
+         true,
          true,
          [this](const nlohmann::json& args) { return boundary_combs(session_, args); }});
 }
@@ -236,7 +253,10 @@ nlohmann::json McpServer::list_tools() const {
         tools.push_back({{"name", tool.name},
                          {"description", tool.description},
                          {"inputSchema", tool.input_schema},
-                         {"annotations", {{"readOnlyHint", true}, {"openWorldHint", false}}}});
+                         {"annotations",
+                          {{"readOnlyHint", tool.read_only},
+                           {"idempotentHint", true},
+                           {"openWorldHint", false}}}});
     }
     return {{"tools", std::move(tools)}};
 }

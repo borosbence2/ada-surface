@@ -11,6 +11,10 @@ ToolResult scene_open(SceneSession& session, const nlohmann::json& args);
 ToolResult scene_summary(SceneSession& session);
 ToolResult quality_report(SceneSession& session);
 
+/// Solves the open scene's recipes, writes the result back to its file (the
+/// only tool that writes), and returns the solve summary with the report.
+ToolResult solve(SceneSession& session);
+
 // Studio-only tools (--ui-tools). Bulk arrays travel as base64 little-endian
 // float32/uint32 (see base64.hpp).
 ToolResult tessellate(SceneSession& session, const nlohmann::json& args);

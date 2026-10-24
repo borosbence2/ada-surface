@@ -16,7 +16,9 @@ const api: AdaApi = {
   kernelStatus: () => ipcRenderer.invoke(Channels.kernelStatusNow),
   chooseScene: () => ipcRenderer.invoke(Channels.chooseScene),
   loadScene: (path?: string) => ipcRenderer.invoke(Channels.loadScene, path),
+  solveScene: () => ipcRenderer.invoke(Channels.solveScene),
   writeSelection: (selection: Selection) => ipcRenderer.invoke(Channels.writeSelection, selection),
+  sceneRendered: () => ipcRenderer.send(Channels.sceneRendered),
   restartKernel: () => ipcRenderer.invoke(Channels.restartKernel),
   onKernelStatus: (listener) => {
     const handler = (_event: IpcRendererEvent, status: KernelStatus) => listener(status);

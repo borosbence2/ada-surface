@@ -47,6 +47,12 @@ inline constexpr double kHighlightCurvatureNoise = 1e-6;
 /// in either direction when inflections of a CV row are counted.
 inline constexpr double kHullTurnNoise = 1e-4;
 
+/// Nor does a bending component smaller than this share of the row's largest
+/// bend. A row that bends strongly one way leaks a few percent of that bend
+/// into the other component wherever the reference normal tilts out of the
+/// row's plane; sign flips in that leak are not a zig-zag anyone could see.
+inline constexpr double kHullRelativeNoise = 0.05;
+
 /// Constraint rows are normalised to unit length; a QR pivot below this marks
 /// a row as dependent on the others (a redundant constraint, as at shared
 /// corners), not a new condition.
@@ -62,5 +68,16 @@ inline constexpr double kConstraintConsistency = 1e-9;
 /// energy nor the constraints pin down; it keeps every solve well-posed
 /// without visibly changing a determined result.
 inline constexpr double kSolverTieBreak = 1e-9;
+
+/// Boundary curves of a from_boundaries patch meet at a corner when their end
+/// points are closer than this fraction of the model size (1e-6 of a 1 m part
+/// is a micrometre). Curves through a shared corner point meet exactly; this
+/// only absorbs rounding in imported data.
+inline constexpr double kCurveCornerGap = 1e-6;
+
+/// Weight (relative to the normalised fairness energy) with which a boundary
+/// curve's control point is followed where it cannot be held exactly. Large
+/// enough that the curve moves only as far as the constraints force it to.
+inline constexpr double kCurveTargetWeight = 1e4;
 
 } // namespace ada::tol

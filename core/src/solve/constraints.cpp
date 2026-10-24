@@ -1,5 +1,7 @@
 #include "ada/solve/constraints.hpp"
 
+#include "ada/geom/curve_fit.hpp"
+
 #include <fmt/format.h>
 
 #include <stdexcept>
@@ -118,6 +120,28 @@ void add_edge_join(Constraints& out,
                            label});
         }
     }
+}
+
+void add_surface_point(Constraints& out,
+                       std::size_t patch_index,
+                       const BezierPatch& patch,
+                       double u,
+                       double v,
+                       const Vec3& target,
+                       const std::string& label) {
+    if (!(u >= 0.0 && u <= 1.0 && v >= 0.0 && v <= 1.0)) {
+        throw std::invalid_argument(
+            fmt::format("{}: (u, v) = ({}, {}) is outside the unit square", label, u, v));
+    }
+    const std::vector<double> bu = bernstein_values(patch.degree_u(), u);
+    const std::vector<double> bv = bernstein_values(patch.degree_v(), v);
+    LinearConstraint c{{}, target, {true, true, true}, label};
+    for (std::size_t i = 0; i < patch.num_u(); ++i) {
+        for (std::size_t j = 0; j < patch.num_v(); ++j) {
+            c.terms.push_back({{patch_index, i, j}, bu[i] * bv[j]});
+        }
+    }
+    out.push_back(std::move(c));
 }
 
 void add_symmetry(Constraints& out,

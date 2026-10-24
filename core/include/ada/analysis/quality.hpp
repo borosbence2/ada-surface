@@ -71,7 +71,8 @@ struct QualityReport {
 };
 
 /// The light the highlight analysis uses: the scene's own, or
-/// `default_light_plane` over the bounding box of all control points.
+/// `default_light_plane` over the bounding box of all control points, facing
+/// the way most of the surface does.
 LightPlane resolve_light(const Scene& scene);
 
 QualityReport compute_quality(const Scene& scene, const AnalysisSettings& settings = {});

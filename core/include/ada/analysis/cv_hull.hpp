@@ -14,9 +14,10 @@ namespace ada {
 ///
 /// Bending is split into a component along the surface normal (at the
 /// vertex's Greville point) and a sideways component within the surface, and
-/// sign changes are counted for each. One sign change in a row can be a
-/// deliberate S-shape; two or more in either component make the row a
-/// zig-zag.
+/// sign changes are counted for each, ignoring components too small to see
+/// next to the row's largest bend (`tol::kHullRelativeNoise`). One sign change
+/// in a row can be a deliberate S-shape; two or more in either component make
+/// the row a zig-zag.
 struct CvHullSummary {
     std::size_t rows = 0;        ///< Rows with at least three points.
     std::size_t zigzag_rows = 0; ///< Rows with two or more inflections.

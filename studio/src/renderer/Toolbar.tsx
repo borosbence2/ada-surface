@@ -6,18 +6,36 @@ interface ToolbarProps {
   onOpen: () => void;
   onReload: () => void;
   canReload: boolean;
+  onSolve: () => void;
+  /** Disabled while solving, or with no scene or kernel. */
+  canSolve: boolean;
 }
 
 /** Comb scale slider runs over 10^-1 .. 10^1 of the automatic length. */
 const kCombScaleDecades = 1;
 
-export function Toolbar({ options, onChange, onOpen, onReload, canReload }: ToolbarProps) {
+export function Toolbar({
+  options,
+  onChange,
+  onOpen,
+  onReload,
+  canReload,
+  onSolve,
+  canSolve,
+}: ToolbarProps) {
   const set = (patch: Partial<DisplayOptions>) => onChange({ ...options, ...patch });
   return (
     <header className="toolbar">
       <button onClick={onOpen}>Open…</button>
       <button onClick={onReload} disabled={!canReload} title="Reload the scene from disk">
         Reload
+      </button>
+      <button
+        onClick={onSolve}
+        disabled={!canSolve}
+        title="Solve the scene's recipes in the kernel and write the result back to the file"
+      >
+        Solve
       </button>
       <span className="toolbar__divider" />
       <div className="segmented" role="radiogroup" aria-label="View mode">
