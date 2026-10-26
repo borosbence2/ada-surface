@@ -2,8 +2,14 @@
 
 ADA measures its own continuity. This check has an independent tool, NX,
 measure the same surfaces, so a shared mistake in ADA's surfaces and its
-measurements cannot hide. M6 is done when NX agrees with `ada report` on every
-case below.
+measurements cannot hide.
+
+Without NX access, M6 was closed with OpenCASCADE instead
+([occt-verification.md](occt-verification.md)), which agrees with `ada report`
+on every case. The NX check is now optional. It would add what OpenCASCADE
+cannot: a Class-A tool's view of the surfaces, with NX's tolerances and its
+reflection analysis. Rhino 8 (a 90-day evaluation; `EdgeContinuity`, `Zebra`)
+can stand in for it.
 
 ## 1. Make the files
 

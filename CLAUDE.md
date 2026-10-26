@@ -28,7 +28,9 @@ constraint-solving Bézier surface kernel through MCP tools, and ADA Studio
   plugin), TypeScript strict, React, three.js, official MCP TypeScript SDK
   (client, from M3), Vitest, oxlint + oxfmt. The npm dependency list is just as
   fixed as the C++ one: ask before adding a package. Keep `npm audit` clean.
-- Python only for analysis scripts and, from Phase 4, ML.
+- Python only for analysis scripts and, from Phase 4, ML. Validation:
+  `cadquery-ocp` (OpenCASCADE) for `scripts/occt_check.py`, pinned in
+  `scripts/requirements-occt.txt`, installed in `.venv`.
 
 ## Hard rules
 - **The agent never writes control points.** No MCP tool sets raw CV
@@ -63,6 +65,7 @@ ctest --preset dev --output-on-failure
 ./build/dev/bin/ada solve cases/L2-hood-2x2-sym.ada.json -o results/hood.ada.json
 ./build/dev/bin/ada bench cases                              # scorecard; exit 0 only if every case passes
 ./build/dev/bin/ada export cases/L2-hood-2x2-sym.ada.json --solve -o results/hood.igs
+.venv/Scripts/python scripts/occt_check.py                   # OpenCASCADE re-measures every case; exit 0 = agrees
 
 npm --prefix studio ci
 npm --prefix studio start          # needs a built kernel (build/release or build/dev)

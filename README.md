@@ -5,11 +5,11 @@ curves, a target shape and plain language, and an agent builds it. A
 deterministic Bézier kernel holds the continuity, and every result comes with
 a quality report.
 
-> Status: M6. Scenes are written as curves through points plus recipes;
+> Status: M6 done. Scenes are written as curves through points plus recipes;
 > `ada solve` turns them into G2-continuous Bézier surfaces, `ada bench`
-> checks the case ladder against its budgets, and `ada export` writes IGES for
-> NX. The agent's editing tools come next (M7). See
-> [MILESTONES.md](MILESTONES.md).
+> checks the case ladder against its budgets, and `ada export` writes IGES,
+> which OpenCASCADE measures again independently. The agent's editing tools
+> come next (M7). See [MILESTONES.md](MILESTONES.md).
 
 ## Building
 
@@ -30,8 +30,12 @@ Solve a scene and check it from the command line (exit code 0 pass, 1 fail,
 ./build/dev/bin/ada export results/hood.ada.json -o results/hood.igs
 ```
 
-[docs/nx-verification.md](docs/nx-verification.md) describes checking the
-exported surfaces in NX.
+[docs/occt-verification.md](docs/occt-verification.md) describes the
+independent check: OpenCASCADE reads the exported IGES and measures every
+joint again (`scripts/occt_check.py`, also run in CI). It needs a Python venv
+with `pip install -r scripts/requirements-occt.txt`.
+[docs/nx-verification.md](docs/nx-verification.md) describes the same check in
+NX.
 
 Studio (Node 24 LTS; build the kernel first, Studio starts it as `ada-mcp`):
 

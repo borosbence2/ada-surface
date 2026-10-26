@@ -283,12 +283,13 @@ be changed before the milestone that depends on it starts.
 - [x] Snapshot undo; JSON round trip leaves a scene unchanged.
 - Exit: every L0–L2 case is expressible as a scene file with no CVs written by hand. *Met: `cases/*.ada.json`.*
 
-#### M6 — Case ladder, bench and NX check
+#### M6 — Case ladder, bench and independent check
 - [x] Cases: `L0-roof-centre`, `L0s-roof-centre-sym`, `L1-g2-blend`, `L2-hood-2x2-sym`, `L2-panel-3x3`, each with a budget (and a `description` saying why).
 - [x] `ada bench cases/` → scorecard (markdown + JSON); runs in CI, scorecard in the job summary.
 - [x] IGES 128 export: `ada export` (with `--solve` for authored cases), the `export_iges` MCP tool, Studio's Export IGES button; CI uploads every case as the `case-iges` artifact.
-- [ ] Import into NX and check continuity with NX's own analysis tools; record the results in `docs/nx-verification.md`. *Waiting for the user.*
-- Exit: all cases pass their budgets in CI, and NX's continuity analysis agrees with our report within tolerance. *NX check by the user.*
+- [x] Independent check: OpenCASCADE reads the exported IGES and measures every joint again (`scripts/occt_check.py`, run in CI); it agrees with `ada report` on every check of every case. Results in `docs/occt-verification.md`. *Replaces the NX check while there is no NX access (the user's call, 2026-10-26).*
+- [ ] Optional: the same check in NX (or Rhino), recorded in `docs/nx-verification.md`, for a Class-A tool's view of the surfaces.
+- Exit: all cases pass their budgets in CI, and an independent tool's continuity analysis agrees with our report within tolerance. *Met with OpenCASCADE; NX when available.*
 
 ### Phase 2 — The vibe loop
 
@@ -353,7 +354,8 @@ auto-update and code signing, cloud, multi-user.
 ## 7. Open questions
 
 - **NX access**: which NX version, and is it available for the M6/M12
-  verification step?
+  verification step? M6 was closed with OpenCASCADE instead; NX would still
+  add a Class-A tool's view (its zebra, its tolerances).
 - **Practitioner contact**: can a working Class-A modeller review the budgets
   in section 4 and judge results? This is the most valuable outside input.
 - **Licence** (D2): the repo is public; pick a licence or stay all-rights-reserved.
@@ -503,3 +505,18 @@ auto-update and code signing, cloud, multi-user.
   the spacing off k·spacing (0 inflections). docs/nx-verification.md is the
   procedure and the results table for the NX check; the decisive pair is
   hood (G2) vs hood-g1-only (G1, G2 off by 144 %).
+- 2026-10-26 — M6 done, with OpenCASCADE instead of NX (no NX access).
+  `scripts/occt_check.py` (Python; `cadquery-ocp` 7.9.3.1.1, a validation-only
+  dependency the user approved, in `.venv`) solves, reports and exports each
+  case, then reads the IGES with OCCT's own reader, finds the joints and Y = 0
+  edges from the geometry alone, and measures G0/G1/G2 with OCCT's evaluator
+  and principal curvatures. It also measures G2 over all tangent directions,
+  mirror G2, and OCCT's LocalAnalysis verdict as a second opinion. It agrees
+  with `ada report` on every check of every case, including the decisive pair
+  (hood 1.1e-14, hood-g1-only 1.443, hood-g2-broken 0.171 in both tools). It
+  also catches a G0 mutant, a G1 mutant and an unlinked shared boundary. Mirror
+  G2 measures below 1e-15 on every Y = 0 edge, which confirms §4. CI runs it on
+  windows-msvc. Deviation: the M6 exit named NX; the NX check is now
+  optional. Found: L1-g2-blend's `inner` sheet ends on Y = 0 without a
+  symmetry link (0.044° normal tilt there). That is not a disagreement; it is
+  open with the user.

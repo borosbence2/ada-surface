@@ -114,7 +114,24 @@ jobs:
           fi
           exit $status
 
-      # IGES of every case and example, for the NX check (docs/nx-verification.md).
+      # OpenCASCADE reads the exported IGES and measures every joint again
+      # (docs/occt-verification.md). It must agree with ada report everywhere.
+      - name: Set up Python
+        if: matrix.name == 'windows-msvc'
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: scripts/requirements-occt.txt
+
+      - name: Check the cases with OpenCASCADE
+        if: matrix.name == 'windows-msvc'
+        shell: bash
+        run: |
+          python -m pip install -r scripts/requirements-occt.txt
+          python scripts/occt_check.py --ada ./build/${{ matrix.preset }}/bin/ada.exe --markdown "$GITHUB_STEP_SUMMARY"
+
+      # IGES of every case and example, for checks in other tools (docs/nx-verification.md).
       - name: Export the cases as IGES
         if: matrix.name == 'windows-msvc'
         shell: bash
