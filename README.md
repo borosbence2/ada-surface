@@ -5,12 +5,13 @@ curves, a target shape and plain language, and an agent builds it. A
 deterministic Bézier kernel holds the continuity, and every result comes with
 a quality report.
 
-> Status: M7 done. Scenes are written as curves through points plus recipes;
+> Status: M8. Scenes are written as curves through points plus recipes;
 > `ada solve` turns them into G2-continuous Bézier surfaces, `ada bench`
 > checks the case ladder against its budgets, and `ada export` writes IGES,
-> which OpenCASCADE measures again independently. An agent can now build and
-> edit scenes through `ada-mcp`'s tools; the craft guide for it comes next
-> (M8). See [MILESTONES.md](MILESTONES.md).
+> which OpenCASCADE measures again independently. An agent builds and edits
+> scenes through `ada-mcp`'s tools, guided by a Class-A craft guide, while
+> Studio shows the result live. The chat inside Studio comes next (M9). See
+> [MILESTONES.md](MILESTONES.md).
 
 ## Building
 
@@ -69,7 +70,8 @@ Windows, which would otherwise block rebuilding `build/dev`. The server is
 registered for the directory `claude mcp add` runs in, so start Claude Code
 there. With only the VS Code extension installed, `claude` is not on the PATH;
 the extension ships it as
-`%USERPROFILE%\.vscode\extensionsnthropic.claude-code-<version>-win32-x64esources
+`%USERPROFILE%\.vscode\extensionsnthropic.claude-code-<version>-win32-x64
+esources
 ative-binary\claude.exe`.
 
 Then ask in plain language, for example "make a new scene for a hood, 1200 x
@@ -90,6 +92,11 @@ tools:
 No tool sets control points. Every edit solves the scene and writes the file;
 an edit that cannot be solved is refused with an error code, the reason and
 what to try, and leaves the file as it was.
+
+Claude Code started in this repository also loads the craft guide,
+[`.claude/skills/class-a-surfacing`](.claude/skills/class-a-surfacing/SKILL.md):
+how to work with these tools the way a Class-A modeller would, what every
+quality check means, and what to try when one fails.
 
 ## Idea
 

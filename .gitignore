@@ -13,6 +13,9 @@ CMakeUserPresets.json
 # Viewer <-> agent selection handoff (runtime state)
 selection.json
 
+# Claude Code: per-user permissions (the skills in .claude/skills are shared)
+.claude/settings.local.json
+
 # Editors / IDEs
 .vscode/
 .vs/

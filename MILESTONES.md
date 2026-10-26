@@ -301,13 +301,13 @@ be changed before the milestone that depends on it starts.
 - Exit: the L2 hood case can be built from scratch through tool calls alone. *Met: a test builds it with `scene_new`, one `curve_from_points`, `network_from_curves` and two `symmetry_constrain` calls; the file equals the authored case and its surfaces match solving that case directly (< 1e-6 mm).*
 
 #### M8 — Craft guide and selection bridge (route A, Claude Code)
-- [ ] `agent/` skill: Class-A workflow (inspect → change → solve → report → explain), what each metric means, when to raise degree versus split, and when to stop and ask.
-- [ ] Selection bridge end to end: pick in Studio, then the agent refers to "this edge".
+- [x] Craft guide as a Claude Code skill, `.claude/skills/class-a-surfacing/SKILL.md` (not `agent/`: Claude Code finds project skills only there, and it loads whenever Claude Code runs in the repo). Class-A workflow (inspect → change → solve → report → explain), ADA's conventions with a worked network layout, every quality check, what to try per failure and error code, degree versus split, fairest versus least change, and when to stop and ask.
+- [x] Selection bridge end to end: pick in Studio, then the agent refers to "this edge". *Seen working in the user's first session: "make this edge G1" → `get_selection` → `hood_0_1.VMax` → `edge_constrain`.*
 - Exit: a natural-language session in Claude Code, watched live in Studio, builds a symmetric G2 roof, and the agent explains the final report correctly. *Session judged by the user.*
 
 #### M9 — Studio chat (route B, in-app agent)
 - [ ] Choose the agent host by checking the current Anthropic docs at the time: Claude Agent SDK (TypeScript) versus the Messages API tool runner with an MCP client. Record the choice as D12.
-- [ ] Host the agent in Studio's main process, connected to the same sidecar; hide UI-only tools from it; load the `agent/` craft guide as its instructions.
+- [ ] Host the agent in Studio's main process, connected to the same sidecar; hide UI-only tools from it; load the craft guide (`.claude/skills/class-a-surfacing/SKILL.md`) as its instructions.
 - [ ] Chat panel: streaming replies, collapsed tool-call rows, rendered report summaries, the current selection attached to the message as a chip.
 - [ ] API key stored with Electron `safeStorage`; never in the repo, the scene file or logs.
 - [ ] Windows installer via the Squirrel maker, so others can try it (approve `electron-winstaller`'s install script under npm 11's `allowScripts` first).
@@ -543,3 +543,16 @@ auto-update and code signing, cloud, multi-user.
   over every constraint involved, and every label above 10 % of the worst
   is named. MinGW Debug builds needed `-Wa,-mbig-obj` (MSVC already had
   `/bigobj`). `scene_summary` now lists curves and recipes in full.
+- 2026-10-26 — M8 craft guide and selection bridge; the exit session is the
+  user's. The user's first agent session (Claude Code in VS Code, ada
+  registered with the bundled claude.exe) built a symmetric 2 x 2 hood in six
+  tool calls, then changed and undid a joint picked in Studio. Read from its
+  transcript, and fixed: the agent sees each tool's structured result, not
+  its text, and the undo result did not say what it took back (History
+  entries now carry the edit's description); `scene_new` refused a missing
+  folder (it now creates it); Studio's `--view=highlights` silently showed
+  zebra, because the toolbar says Highlights and the mode is highlight (ids
+  and labels are now accepted, anything else exits with the list); and the
+  agent read a case file to learn the network layout and had no guidance on
+  curves giving way at nodes (both are now in the guide, which reports the
+  cases' own values for calibration: 0.6 mm hood, 1.5 mm 3 x 3 panel).
