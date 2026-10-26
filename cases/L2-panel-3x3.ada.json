@@ -1,4 +1,9 @@
 {
+  "budgets": {
+    "allow_curvature_reversal": false,
+    "max_degree": 3,
+    "max_highlight_inflections": 1
+  },
   "curves": [
     {
       "degree": 3,
@@ -745,6 +750,7 @@
       ]
     }
   ],
+  "description": "L2: door skin as a 3 x 3 network on a vertical panel, G2 on every internal edge. The default highlight light faces the panel from the side. Budgets: degree 3, no curvature reversal, at most one highlight inflection per line (the observed value; a regression guard).",
   "edges": [
     {
       "a": [

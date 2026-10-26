@@ -284,9 +284,10 @@ be changed before the milestone that depends on it starts.
 - Exit: every L0–L2 case is expressible as a scene file with no CVs written by hand. *Met: `cases/*.ada.json`.*
 
 #### M6 — Case ladder, bench and NX check
-- [ ] Cases: `L0-roof-centre`, `L0s-roof-centre-sym`, `L1-g2-blend`, `L2-hood-2x2-sym`, `L2-panel-3x3`, each with a budget. *(Authored in M5; budgets still to set.)*
-- [ ] `ada bench cases/` → scorecard (markdown + JSON); runs in CI.
-- [ ] IGES 128 export (CLI and an export button in Studio); import into NX and check continuity with NX's own analysis tools; record the results in `docs/nx-verification.md`.
+- [x] Cases: `L0-roof-centre`, `L0s-roof-centre-sym`, `L1-g2-blend`, `L2-hood-2x2-sym`, `L2-panel-3x3`, each with a budget (and a `description` saying why).
+- [x] `ada bench cases/` → scorecard (markdown + JSON); runs in CI, scorecard in the job summary.
+- [x] IGES 128 export: `ada export` (with `--solve` for authored cases), the `export_iges` MCP tool, Studio's Export IGES button; CI uploads every case as the `case-iges` artifact.
+- [ ] Import into NX and check continuity with NX's own analysis tools; record the results in `docs/nx-verification.md`. *Waiting for the user.*
 - Exit: all cases pass their budgets in CI, and NX's continuity analysis agrees with our report within tolerance. *NX check by the user.*
 
 ### Phase 2 — The vibe loop
@@ -486,3 +487,19 @@ auto-update and code signing, cloud, multi-user.
   button with an "unsolved" banner. Studio's `--screenshot` now waits for the
   renderer to report a drawn scene instead of a fixed delay (a Vite reload in
   dev had produced an empty capture).
+- 2026-10-26 — M6 code done; the NX check is the user's. Each case now
+  carries per-case budgets and a `description` (new scene field) saying why:
+  panels are degree 3 with no curvature reversal; L0 roofs allow no highlight
+  inflection; the L1 blend allows its S (reversal, degree 5, two inflections);
+  the L2 networks cap inflections at the observed value as a regression guard,
+  not a Class-A rule. `ada bench <dir>` solves every case in memory and writes
+  a Markdown/JSON scorecard (exit 0 only if all pass); CI runs it and posts
+  the scorecard to the job summary. IGES export writes one entity 128 per
+  patch in mm (hand-written writer, records checked by a test-only reader
+  that reads every patch back exactly). Found on the way: on a symmetric part
+  the level-0 highlight line lies on a grid line of the sampled field, where
+  rounding noise decided marching-squares classification and zig-zagged the
+  line (the full-width roof reported 34 inflections); levels now sit 1e-6 of
+  the spacing off k·spacing (0 inflections). docs/nx-verification.md is the
+  procedure and the results table for the NX check; the decisive pair is
+  hood (G2) vs hood-g1-only (G1, G2 off by 144 %).

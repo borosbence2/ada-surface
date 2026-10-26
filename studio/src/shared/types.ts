@@ -116,6 +116,11 @@ export interface SceneBundle {
 
 export type LoadResult = { ok: true; bundle: SceneBundle } | { ok: false; error: string };
 
+/** Result of an IGES export; null when the user cancelled the save dialog. */
+export type ExportOutcome =
+  | { ok: true; path: string; patches: number }
+  | { ok: false; error: string };
+
 /** What the kernel's `solve` tool reports back (it also writes the scene file). */
 export type SolveOutcome =
   | {

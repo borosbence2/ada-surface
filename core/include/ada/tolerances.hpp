@@ -39,6 +39,13 @@ inline constexpr double kContourCrossing = 1e-13;
 /// at its ends meaningless.
 inline constexpr double kContourMinSegment = 1e-9;
 
+/// Highlight levels sit this fraction of the line spacing off k * spacing. On a
+/// symmetric part a level falls exactly on a grid line of the sampled field
+/// (the crown of a roof is level 0), where every node is zero up to rounding
+/// and marching squares would classify them by noise, zig-zagging the line.
+/// Far above rounding, far below anything visible (7e-5 mm at 70 mm spacing).
+inline constexpr double kHighlightLevelOffset = 1e-6;
+
 /// Highlight-line curvature magnitudes below this (1/mm; a radius of 1 km) do
 /// not count as a bend in either direction when inflections are counted.
 inline constexpr double kHighlightCurvatureNoise = 1e-6;

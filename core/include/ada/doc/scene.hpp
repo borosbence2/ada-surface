@@ -104,6 +104,8 @@ struct SolveSettings {
 };
 
 struct Scene {
+    /// Free text: what the scene is and why its budgets are what they are.
+    std::string description;
     std::vector<SceneCurve> curves;
     std::vector<ScenePatch> patches;
     std::vector<EdgeLink> edges;

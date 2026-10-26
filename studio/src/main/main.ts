@@ -6,6 +6,7 @@ import started from 'electron-squirrel-startup';
 import { Channels } from '../preload/api';
 import type {
   CvHull,
+  ExportOutcome,
   KernelStatus,
   LoadResult,
   PatchCombs,
@@ -184,6 +185,33 @@ async function solveScene(): Promise<SolveOutcome> {
   }
 }
 
+async function exportIges(): Promise<ExportOutcome | null> {
+  if (!kernel || kernelStatus.state !== 'ready' || !scenePath) {
+    return { ok: false, error: 'open a scene with the kernel running first' };
+  }
+  const options = {
+    title: 'Export IGES',
+    defaultPath: scenePath.replace(/\.ada\.json$|\.json$/, '') + '.igs',
+    filters: [{ name: 'IGES', extensions: ['igs', 'iges'] }],
+  };
+  const choice = window
+    ? await dialog.showSaveDialog(window, options)
+    : await dialog.showSaveDialog(options);
+  if (choice.canceled || !choice.filePath) {
+    return null;
+  }
+  try {
+    await kernel.call('scene_open', { path: scenePath });
+    const result = (await kernel.call('export_iges', { path: choice.filePath })) as {
+      path: string;
+      patches: number;
+    };
+    return { ok: true, path: result.path, patches: result.patches };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 function registerIpc(): void {
   ipcMain.handle(Channels.chooseScene, async () => {
     const options = {
@@ -199,6 +227,12 @@ function registerIpc(): void {
 
   ipcMain.handle(Channels.loadScene, (_event, file?: string) => {
     const next = loading.then(() => load(file));
+    loading = next.catch(() => undefined);
+    return next;
+  });
+
+  ipcMain.handle(Channels.exportIges, () => {
+    const next = loading.then(() => exportIges());
     loading = next.catch(() => undefined);
     return next;
   });

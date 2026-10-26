@@ -101,7 +101,7 @@ highlight_lines(const PatchEvaluator& patch, const LightPlane& light, std::size_
         const double first = std::max(std::ceil(lo / light.spacing), -kHalfRange);
         const double last = std::min(std::floor(hi / light.spacing), kHalfRange);
         for (double k = first; k <= last; k += 1.0) {
-            levels.push_back(k * light.spacing);
+            levels.push_back((k + tol::kHighlightLevelOffset) * light.spacing);
         }
     }
     return extract_contours(samples, field, levels);

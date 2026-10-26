@@ -1,4 +1,9 @@
 {
+  "budgets": {
+    "allow_curvature_reversal": true,
+    "max_degree": 5,
+    "max_highlight_inflections": 2
+  },
   "curves": [
     {
       "degree": 3,
@@ -249,6 +254,7 @@
       ]
     }
   ],
+  "description": "L1: two panels 200 mm apart with a 74 mm step, joined by a G2 blend (degree 5 across). The blend is an S by design, so curvature reversal is allowed and degree 5 is the cap. Highlight inflections: the S itself inflects once, and the nearly flat outer panel's lines are almost straight, so their curvature hovers around the 1 km noise floor; two is the budget.",
   "format": "ada-scene",
   "patches": [
     {

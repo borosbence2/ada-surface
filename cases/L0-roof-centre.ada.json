@@ -1,4 +1,9 @@
 {
+  "budgets": {
+    "allow_curvature_reversal": false,
+    "max_degree": 3,
+    "max_highlight_inflections": 0
+  },
   "curves": [
     {
       "degree": 3,
@@ -125,6 +130,7 @@
       ]
     }
   ],
+  "description": "L0: full-width roof centre panel, one bicubic from four curves through points. Budgets: degree 3, no curvature reversal, and highlight lines without a single inflection: a crowned roof under an overhead light gives clean, gently bowed lines.",
   "format": "ada-scene",
   "patches": [
     {

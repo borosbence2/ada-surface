@@ -141,6 +141,16 @@ void McpServer::register_tools() {
          false,
          false,
          [this](const nlohmann::json&) { return solve(session_); }});
+    tools_.push_back(
+        {"export_iges",
+         "Write the open scene's patches to an IGES file (entity 128, millimetres) for NX, CATIA "
+         "or Alias. A relative path is taken relative to the scene file. The scene must be solved.",
+         {{"type", "object"},
+          {"properties", {{"path", {{"type", "string"}, {"description", "IGES file to write"}}}}},
+          {"required", {"path"}}},
+         false,
+         false,
+         [this](const nlohmann::json& args) { return export_iges(session_, args); }});
     tools_.push_back({"tessellate",
                       "Studio: triangle meshes of every patch with normals, (u, v), Gaussian and "
                       "mean curvature and the highlight parameter per vertex.",

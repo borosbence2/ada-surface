@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
 #include <span>
 #include <string>
 #include <vector>
@@ -230,6 +231,37 @@ TEST_CASE("solve turns an authored case into geometry and writes it back", "[mcp
         }
     }
     std::filesystem::remove(path);
+}
+
+TEST_CASE("export_iges writes next to the scene and refuses unsolved ones", "[mcp][tools]") {
+    const std::filesystem::path dir =
+        std::filesystem::temp_directory_path() / "ada-mcp-test-export";
+    std::filesystem::remove_all(dir);
+    std::filesystem::create_directories(dir);
+    std::filesystem::copy_file(std::filesystem::path(ADA_SOURCE_DIR) / "cases" /
+                                   "L2-hood-2x2-sym.ada.json",
+                               dir / "hood.ada.json");
+    ServerOptions options;
+    options.scene = dir / "hood.ada.json";
+    McpServer server = initialised(options);
+
+    const json refused = call(server, "export_iges", {{"path", "hood.igs"}});
+    CHECK(refused.at("isError") == true);
+    CHECK(refused.at("content")[0].at("text").get<std::string>().find("unsolved") !=
+          std::string::npos);
+
+    call(server, "solve");
+    const json exported = call(server, "export_iges", {{"path", "hood.igs"}});
+    REQUIRE(exported.at("isError") == false);
+    CHECK(exported.at("structuredContent").at("patches") == 4);
+    REQUIRE(std::filesystem::exists(dir / "hood.igs"));
+    std::ifstream file(dir / "hood.igs");
+    std::string first;
+    std::getline(file, first);
+    CHECK(first.size() == 80);
+    CHECK(first[72] == 'S');
+    file.close();
+    std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("tessellate returns meshes that lie on the patches", "[mcp][tools]") {

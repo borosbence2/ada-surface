@@ -1,4 +1,9 @@
 {
+  "budgets": {
+    "allow_curvature_reversal": false,
+    "max_degree": 3,
+    "max_highlight_inflections": 0
+  },
   "curves": [
     {
       "degree": 3,
@@ -125,6 +130,7 @@
       ]
     }
   ],
+  "description": "L0s: the left half of the L0 roof, mirror-symmetric (G2) at Y = 0. Same budgets as L0; the boundary curves crossing Y = 0 give way about 0.1 mm to meet the plane at a right angle.",
   "format": "ada-scene",
   "patches": [
     {

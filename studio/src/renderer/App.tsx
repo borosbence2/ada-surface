@@ -103,6 +103,18 @@ export function App() {
     await load();
   };
 
+  const exportIges = async () => {
+    const outcome = await window.ada.exportIges();
+    if (outcome === null) {
+      return;
+    }
+    if (outcome.ok) {
+      setNotice(`exported ${outcome.patches} patch(es) to ${outcome.path}`);
+    } else {
+      setError(outcome.error);
+    }
+  };
+
   const unsolved =
     bundle?.report.patches.some((p) => p.checks.some((c) => c.name === 'unsolved' && !c.pass)) ??
     false;
@@ -126,6 +138,7 @@ export function App() {
         onReload={() => void load()}
         canReload={bundle !== null && kernel.state === 'ready'}
         onSolve={() => void solve()}
+        onExport={() => void exportIges()}
         canSolve={bundle !== null && kernel.state === 'ready' && !solving}
       />
       <main className="workspace">

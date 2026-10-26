@@ -5,9 +5,10 @@ curves, a target shape and plain language, and an agent builds it. A
 deterministic Bézier kernel holds the continuity, and every result comes with
 a quality report.
 
-> Status: M5. Scenes are written as curves through points plus recipes;
-> `ada solve` turns them into G2-continuous Bézier surfaces, and Studio shows
-> and checks them. The agent's editing tools come next (M7). See
+> Status: M6. Scenes are written as curves through points plus recipes;
+> `ada solve` turns them into G2-continuous Bézier surfaces, `ada bench`
+> checks the case ladder against its budgets, and `ada export` writes IGES for
+> NX. The agent's editing tools come next (M7). See
 > [MILESTONES.md](MILESTONES.md).
 
 ## Building
@@ -25,7 +26,12 @@ Solve a scene and check it from the command line (exit code 0 pass, 1 fail,
 ```
 ./build/dev/bin/ada solve cases/L2-hood-2x2-sym.ada.json -o results/hood.ada.json
 ./build/dev/bin/ada report results/hood.ada.json
+./build/dev/bin/ada bench cases                        # every case against its budgets
+./build/dev/bin/ada export results/hood.ada.json -o results/hood.igs
 ```
+
+[docs/nx-verification.md](docs/nx-verification.md) describes checking the
+exported surfaces in NX.
 
 Studio (Node 24 LTS; build the kernel first, Studio starts it as `ada-mcp`):
 

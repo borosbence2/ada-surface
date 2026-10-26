@@ -100,14 +100,36 @@ jobs:
           $ada report cases/examples/hood-g2-broken.ada.json; test $? -eq 1 || exit 1
           $ada report cases/examples/missing.ada.json; test $? -eq 2 || exit 1
 
-      # Every authored case solves and passes (M5 exit).
-      - name: Solve the cases
+      # Every case solves and meets its own budgets (M6 exit). The scorecard
+      # lands in the job summary.
+      - name: Bench the cases
         shell: bash
         run: |
           mkdir -p results
-          for scene in cases/*.ada.json; do
-            ./build/${{ matrix.preset }}/bin/ada solve "$scene" -o "results/$(basename "$scene")"
+          status=0
+          ./build/${{ matrix.preset }}/bin/ada bench cases --markdown results/bench.md --json results/bench.json || status=$?
+          if [ -n "$GITHUB_STEP_SUMMARY" ]; then
+            echo "#### ${{ matrix.name }}" >> "$GITHUB_STEP_SUMMARY"
+            cat results/bench.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit $status
+
+      # IGES of every case and example, for the NX check (docs/nx-verification.md).
+      - name: Export the cases as IGES
+        if: matrix.name == 'windows-msvc'
+        shell: bash
+        run: |
+          mkdir -p results/iges
+          for scene in cases/*.ada.json cases/examples/*.ada.json; do
+            ./build/${{ matrix.preset }}/bin/ada export "$scene" --solve -o "results/iges/$(basename "$scene" .ada.json).igs"
           done
+
+      - name: Upload the IGES files
+        if: matrix.name == 'windows-msvc'
+        uses: actions/upload-artifact@v4
+        with:
+          name: case-iges
+          path: results/iges
 
   studio:
     name: studio-${{ matrix.os }}

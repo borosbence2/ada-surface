@@ -1,4 +1,9 @@
 {
+  "budgets": {
+    "allow_curvature_reversal": false,
+    "max_degree": 3,
+    "max_highlight_inflections": 1
+  },
   "curves": [
     {
       "degree": 3,
@@ -373,6 +378,7 @@
       ]
     }
   ],
+  "description": "L2: hood as a 2 x 2 network of curves through points, G2 on every internal edge, mirror-symmetric at Y = 0. Budgets: degree 3, no curvature reversal, at most one highlight inflection per line (the observed value; a regression guard rather than a Class-A rule).",
   "edges": [
     {
       "a": [

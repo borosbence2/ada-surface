@@ -7,12 +7,14 @@ add_executable(ada_tests
     analysis/test_differential.cpp
     analysis/test_highlight.cpp
     analysis/test_quality.cpp
+    doc/test_bench.cpp
     doc/test_cases.cpp
     doc/test_recipes.cpp
     geom/test_bezier_curve.cpp
     geom/test_bezier_patch.cpp
     geom/test_convert.cpp
     geom/test_patch_evaluator.cpp
+    io/test_iges.cpp
     mcp/test_server.cpp
     solve/test_fairness.cpp
     solve/test_solver.cpp

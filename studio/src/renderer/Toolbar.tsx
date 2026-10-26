@@ -9,6 +9,7 @@ interface ToolbarProps {
   onSolve: () => void;
   /** Disabled while solving, or with no scene or kernel. */
   canSolve: boolean;
+  onExport: () => void;
 }
 
 /** Comb scale slider runs over 10^-1 .. 10^1 of the automatic length. */
@@ -22,6 +23,7 @@ export function Toolbar({
   canReload,
   onSolve,
   canSolve,
+  onExport,
 }: ToolbarProps) {
   const set = (patch: Partial<DisplayOptions>) => onChange({ ...options, ...patch });
   return (
@@ -36,6 +38,13 @@ export function Toolbar({
         title="Solve the scene's recipes in the kernel and write the result back to the file"
       >
         Solve
+      </button>
+      <button
+        onClick={onExport}
+        disabled={!canSolve}
+        title="Write the patches as IGES (entity 128, mm) for NX, CATIA or Alias"
+      >
+        Export IGES…
       </button>
       <span className="toolbar__divider" />
       <div className="segmented" role="radiogroup" aria-label="View mode">

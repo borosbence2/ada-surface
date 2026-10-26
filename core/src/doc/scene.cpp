@@ -293,6 +293,12 @@ Scene scene_from_json(const nlohmann::json& json) {
     }
 
     Scene scene;
+    if (json.contains("description")) {
+        if (!json.at("description").is_string()) {
+            fail("$.description", "expected a string");
+        }
+        scene.description = json.at("description").get<std::string>();
+    }
     const nlohmann::json curves = json.value("curves", nlohmann::json::array());
     std::set<std::string> curve_ids;
     for (std::size_t k = 0; k < curves.size(); ++k) {
@@ -446,6 +452,9 @@ nlohmann::json scene_to_json(const Scene& scene) {
     // Canonical form: sections that are empty or at their defaults are left
     // out, so an authored scene round-trips to itself.
     nlohmann::json out = {{"format", kFormat}, {"version", kVersion}, {"units", "mm"}};
+    if (!scene.description.empty()) {
+        out["description"] = scene.description;
+    }
 
     if (!scene.curves.empty()) {
         nlohmann::json curves = nlohmann::json::array();

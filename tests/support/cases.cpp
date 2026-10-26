@@ -104,16 +104,35 @@ Vec3 hood(double y, double x) {
 
 } // namespace
 
+/// Budgets every panel case shares: one bicubic per patch (a higher degree
+/// would mean something elevated it), and no S-bend anywhere on the panel.
+void panel_budgets(Scene& scene) {
+    scene.budgets.max_degree = 3;
+    scene.budgets.allow_curvature_reversal = false;
+}
+
 AuthoredCase l0_roof_centre() {
     Scene scene;
+    scene.description =
+        "L0: full-width roof centre panel, one bicubic from four curves through points. Budgets: "
+        "degree 3, no curvature reversal, and highlight lines without a single inflection: a "
+        "crowned roof under an overhead light gives clean, gently bowed lines.";
     single(scene, "roof", roof, -650.0, 650.0, 0.0, 1400.0);
+    panel_budgets(scene);
+    scene.budgets.max_highlight_inflections = 0;
     return {"L0-roof-centre", std::move(scene)};
 }
 
 AuthoredCase l0s_roof_centre_sym() {
     Scene scene;
+    scene.description =
+        "L0s: the left half of the L0 roof, mirror-symmetric (G2) at Y = 0. Same budgets as L0; "
+        "the boundary curves crossing Y = 0 give way about 0.1 mm to meet the plane at a right "
+        "angle.";
     single(scene, "roof", roof, 0.0, 650.0, 0.0, 1400.0);
     scene.symmetry.push_back({{"roof", Edge::UMin}, Continuity::G2});
+    panel_budgets(scene);
+    scene.budgets.max_highlight_inflections = 0;
     return {"L0s-roof-centre-sym", std::move(scene)};
 }
 
@@ -121,6 +140,15 @@ AuthoredCase l1_g2_blend() {
     // Two panels side by side in y with a 200 mm gap and a 60 mm step down,
     // bridged by a G2 blend. a = y, b = x for both.
     Scene scene;
+    scene.description =
+        "L1: two panels 200 mm apart with a 74 mm step, joined by a G2 blend (degree 5 across). "
+        "The blend is an S by design, so curvature reversal is allowed and degree 5 is the cap. "
+        "Highlight inflections: the S itself inflects once, and the nearly flat outer panel's "
+        "lines are almost straight, so their curvature hovers around the 1 km noise floor; two "
+        "is the budget.";
+    scene.budgets.max_degree = 5;
+    scene.budgets.allow_curvature_reversal = true;
+    scene.budgets.max_highlight_inflections = 2;
     const Shape inner = [](double y, double x) { return hood(y, x); };
     const Shape outer = [](double y, double x) {
         const double s = x / 1200.0;
@@ -140,7 +168,14 @@ AuthoredCase l1_g2_blend() {
 
 AuthoredCase l2_hood_2x2_sym() {
     Scene scene;
+    scene.description =
+        "L2: hood as a 2 x 2 network of curves through points, G2 on every internal edge, "
+        "mirror-symmetric at Y = 0. Budgets: degree 3, no curvature reversal, at most one "
+        "highlight inflection per line (the observed value; a regression guard rather than a "
+        "Class-A rule).";
     network(scene, "hood", hood, {0.0, 350.0, 700.0}, {0.0, 600.0, 1200.0});
+    panel_budgets(scene);
+    scene.budgets.max_highlight_inflections = 1;
     scene.symmetry.push_back({{"hood_0_0", Edge::UMin}, Continuity::G2});
     scene.symmetry.push_back({{"hood_1_0", Edge::UMin}, Continuity::G2});
     return {"L2-hood-2x2-sym", std::move(scene)};
@@ -154,7 +189,14 @@ AuthoredCase l2_panel_3x3() {
         return Vec3(x, 900.0 + 120.0 * s * (1.0 - s) + 80.0 * t * (1.0 - t) - 25.0 * t, z);
     };
     Scene scene;
+    scene.description =
+        "L2: door skin as a 3 x 3 network on a vertical panel, G2 on every internal edge. The "
+        "default highlight light faces the panel from the side. Budgets: degree 3, no curvature "
+        "reversal, at most one highlight inflection per line (the observed value; a regression "
+        "guard).";
     network(scene, "door", door, {0.0, 350.0, 700.0, 1050.0}, {400.0, 620.0, 840.0, 1050.0});
+    panel_budgets(scene);
+    scene.budgets.max_highlight_inflections = 1;
     return {"L2-panel-3x3", std::move(scene)};
 }
 

@@ -20,6 +20,7 @@ add_library(ada_core STATIC
     include/ada/analysis/quality.hpp
     include/ada/analysis/sampling.hpp
     include/ada/build_info.hpp
+    include/ada/doc/bench.hpp
     include/ada/doc/history.hpp
     include/ada/doc/recipes.hpp
     include/ada/doc/scene.hpp
@@ -31,6 +32,7 @@ add_library(ada_core STATIC
     include/ada/geom/curve_fit.hpp
     include/ada/geom/patch_evaluator.hpp
     include/ada/geom/vec.hpp
+    include/ada/io/iges.hpp
     include/ada/solve/constraints.hpp
     include/ada/solve/fairness.hpp
     include/ada/solve/solver.hpp
@@ -44,6 +46,7 @@ add_library(ada_core STATIC
     src/analysis/highlight.cpp
     src/analysis/quality.cpp
     src/analysis/sampling.cpp
+    src/doc/bench.cpp
     src/doc/history.cpp
     src/doc/recipes.cpp
     src/doc/scene.cpp
@@ -56,6 +59,7 @@ add_library(ada_core STATIC
     src/geom/patch_evaluator.cpp
     src/geom/polygon_ops.cpp
     src/geom/polygon_ops.hpp
+    src/io/iges.cpp
     src/solve/constraints.cpp
     src/solve/fairness.cpp
     src/solve/solver.cpp

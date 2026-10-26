@@ -5,6 +5,7 @@
 #include "ada/analysis/sampling.hpp"
 #include "ada/doc/recipes.hpp"
 #include "ada/geom/patch_evaluator.hpp"
+#include "ada/io/iges.hpp"
 
 #include "base64.hpp"
 
@@ -176,6 +177,25 @@ ToolResult solve(SceneSession& session) {
                                  {"curves", std::move(curves)},
                                  {"report", to_json(report)}};
     return {std::move(text), std::move(structured), false};
+}
+
+ToolResult export_iges(SceneSession& session, const nlohmann::json& args) {
+    if (!args.contains("path") || !args.at("path").is_string()) {
+        throw ToolError("export_iges needs 'path', the IGES file to write");
+    }
+    std::filesystem::path target = args.at("path").get<std::string>();
+    if (target.is_relative()) {
+        target = session.path().parent_path() / target;
+    }
+    const Scene& scene = session.current();
+    try {
+        write_iges(scene, target);
+    } catch (const std::invalid_argument& e) {
+        throw ToolError(e.what());
+    }
+    return {fmt::format("exported {} patches to {}", scene.patches.size(), target.generic_string()),
+            {{"path", target.generic_string()}, {"patches", scene.patches.size()}},
+            false};
 }
 
 ToolResult tessellate(SceneSession& session, const nlohmann::json& args) {

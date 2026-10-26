@@ -15,6 +15,10 @@ ToolResult quality_report(SceneSession& session);
 /// only tool that writes), and returns the solve summary with the report.
 ToolResult solve(SceneSession& session);
 
+/// Writes the open scene's patches as IGES (entity 128). A relative path is
+/// taken relative to the scene file's directory.
+ToolResult export_iges(SceneSession& session, const nlohmann::json& args);
+
 // Studio-only tools (--ui-tools). Bulk arrays travel as base64 little-endian
 // float32/uint32 (see base64.hpp).
 ToolResult tessellate(SceneSession& session, const nlohmann::json& args);

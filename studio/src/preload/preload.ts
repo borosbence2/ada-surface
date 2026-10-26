@@ -17,6 +17,7 @@ const api: AdaApi = {
   chooseScene: () => ipcRenderer.invoke(Channels.chooseScene),
   loadScene: (path?: string) => ipcRenderer.invoke(Channels.loadScene, path),
   solveScene: () => ipcRenderer.invoke(Channels.solveScene),
+  exportIges: () => ipcRenderer.invoke(Channels.exportIges),
   writeSelection: (selection: Selection) => ipcRenderer.invoke(Channels.writeSelection, selection),
   sceneRendered: () => ipcRenderer.send(Channels.sceneRendered),
   restartKernel: () => ipcRenderer.invoke(Channels.restartKernel),
