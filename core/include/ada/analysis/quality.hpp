@@ -79,6 +79,16 @@ QualityReport compute_quality(const Scene& scene, const AnalysisSettings& settin
 
 nlohmann::json to_json(const QualityReport& report);
 
+/// A failed check and where it failed: "patch <id>", "edge <a> ~ <b>" or
+/// "symmetry <edge>".
+struct FailedCheck {
+    std::string where;
+    Check check;
+};
+
+/// Every failed check: patches first, then edges, then symmetry links.
+std::vector<FailedCheck> failed_checks(const QualityReport& report);
+
 /// Plain-text summary for a terminal: one line per patch, edge and symmetry
 /// link, then every failed check.
 std::string format_report(const QualityReport& report);

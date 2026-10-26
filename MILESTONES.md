@@ -294,11 +294,11 @@ be changed before the milestone that depends on it starts.
 ### Phase 2 — The vibe loop
 
 #### M7 — Agent toolset
-- [ ] Tools: `scene_new`, `curve_from_points`, `patch_from_boundaries`, `patch_blend`, `network_from_curves`, `edge_constrain`, `symmetry_constrain`, `patch_set_degree`, `fairness_set`, `get_selection`, `undo`, `export_iges`. (`solve` already exists, from M5.)
-- [ ] Structured errors written for an agent to read (what failed, which constraint, what to try).
-- [ ] No tool sets raw CV coordinates (design rule, section 1). UI-only tools stay behind `--ui-tools`.
-- [ ] `claude mcp add ada -- ada-mcp --scene <file>` documented in README.
-- Exit: the L2 hood case can be built from scratch through tool calls alone.
+- [x] Tools: `scene_new`, `curve_from_points`, `patch_from_boundaries`, `patch_blend`, `network_from_curves`, `edge_constrain`, `symmetry_constrain`, `patch_set_degree`, `fairness_set`, `get_selection`, `undo`, `export_iges`. (`solve` already exists, from M5.) Also `redo`, which the snapshot history gives for free.
+- [x] Structured errors written for an agent to read (what failed, which constraint, what to try): `{code, message, try, details}`, e.g. `constraints_contradict` with every constraint taking part and its residual.
+- [x] No tool sets raw CV coordinates (design rule, section 1). UI-only tools stay behind `--ui-tools`.
+- [x] `claude mcp add ada -- ada-mcp --scene <file>` documented in README, with the tool list.
+- Exit: the L2 hood case can be built from scratch through tool calls alone. *Met: a test builds it with `scene_new`, one `curve_from_points`, `network_from_curves` and two `symmetry_constrain` calls; the file equals the authored case and its surfaces match solving that case directly (< 1e-6 mm).*
 
 #### M8 — Craft guide and selection bridge (route A, Claude Code)
 - [ ] `agent/` skill: Class-A workflow (inspect → change → solve → report → explain), what each metric means, when to raise degree versus split, and when to stop and ask.
@@ -520,3 +520,26 @@ auto-update and code signing, cloud, multi-user.
   optional. Found: L1-g2-blend's `inner` sheet ends on Y = 0 without a
   symmetry link (0.044° normal tilt there). That is not a disagreement; it is
   open with the user.
+- 2026-10-26 — M7 done: the agent toolset. Design choices (defaults, not
+  separate decisions): every edit tool applies its edit to a copy, solves,
+  and only then writes, so the file always holds a solved, valid scene and an
+  edit that cannot be solved changes nothing (no "edit without solving"
+  mode). `curve_from_points` takes several curves per call, because moving a
+  node shared by four curves passes through states where corners do not
+  meet. `patch_set_degree` carries a degree across linked edges (matched
+  edges need equal degrees). `get_selection` also finds, geometrically, the
+  edges lying along a picked one, so "make this edge G2" works before any
+  link exists. New in the core: optional `degree_u`/`degree_v` on
+  from_boundaries recipes (at least the curves' degree; curves are
+  elevated exactly); a raised degree starts the solve from the stored
+  surface elevated exactly, so a least-change solve keeps it; `doc/topology`
+  (edge gaps, touching edges, centre-plane distance; `tol::kEdgeContact`,
+  1e-3 of the model size); `failed_checks()`; and `SolveError::conflicts()`.
+  Found on the way: contradiction reports named only one side. The residual
+  of the solution through an independent subset of the equations falls
+  entirely on the equations left out (a symmetry constraint against a curve
+  0.5 mm off the plane was reported as three boundary rows and no Y = 0).
+  Conflicts are now measured with the least-squares residual, which spreads
+  over every constraint involved, and every label above 10 % of the worst
+  is named. MinGW Debug builds needed `-Wa,-mbig-obj` (MSVC already had
+  `/bigobj`). `scene_summary` now lists curves and recipes in full.

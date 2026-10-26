@@ -10,11 +10,13 @@ add_executable(ada_tests
     doc/test_bench.cpp
     doc/test_cases.cpp
     doc/test_recipes.cpp
+    doc/test_topology.cpp
     geom/test_bezier_curve.cpp
     geom/test_bezier_patch.cpp
     geom/test_convert.cpp
     geom/test_patch_evaluator.cpp
     io/test_iges.cpp
+    mcp/test_edit_tools.cpp
     mcp/test_server.cpp
     solve/test_fairness.cpp
     solve/test_solver.cpp

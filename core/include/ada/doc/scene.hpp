@@ -42,11 +42,19 @@ struct EdgeRef {
     Edge edge;
 };
 
+/// The highest degree a recipe may ask for. Class-A patches stay at 7 or
+/// below; 9 leaves room to experiment without letting a typo ask for 30.
+inline constexpr int kMaxRecipeDegree = 9;
+
 /// A patch bounded by four curves, one per edge, keyed in `Edge` order
 /// (UMin, UMax, VMin, VMax). The curves must meet at the corners; they may
 /// run either way. The interior is left to the solver's fairness energy.
 struct FromBoundaries {
     std::array<std::string, 4> curves;
+    /// Degrees to raise the patch to, at least its curves' (which are then
+    /// degree-elevated, so they keep their shape). Absent: the curves'.
+    std::optional<int> degree_u;
+    std::optional<int> degree_v;
 };
 
 /// A patch filling the gap between an edge of one patch and an edge of

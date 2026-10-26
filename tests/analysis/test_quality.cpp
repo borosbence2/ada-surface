@@ -189,3 +189,14 @@ TEST_CASE("write the example scenes", "[.generate-examples]") {
     ada::write_scene(hood_scene_g2_broken(), examples_dir() / "hood-g2-broken.ada.json");
     ada::write_scene(hood_scene_g1_only(), examples_dir() / "hood-g1-only.ada.json");
 }
+
+TEST_CASE("failed_checks lists every failed check with where it failed", "[analysis][quality]") {
+    const std::vector<ada::FailedCheck> failed =
+        ada::failed_checks(ada::compute_quality(ada::test::hood_scene_g2_broken()));
+    REQUIRE(failed.size() == 1);
+    CHECK(failed[0].where == "edge front.VMax ~ rear.VMin");
+    CHECK(failed[0].check.name == "g2_relative");
+    CHECK_FALSE(failed[0].check.pass);
+
+    CHECK(ada::failed_checks(ada::compute_quality(ada::test::hood_scene())).empty());
+}

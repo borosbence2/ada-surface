@@ -90,11 +90,14 @@ void merge(SceneSolveSummary& summary, const SolveResult& result) {
     }
 }
 
-/// The patch the solve starts from: the stored control points when their
-/// degrees still match the recipe, otherwise the recipe's starting geometry.
+/// The patch the solve starts from: the stored control points, raised
+/// exactly when the recipe now asks for higher degrees (so a least-change
+/// solve keeps the surface it had); the recipe's starting geometry when there
+/// are none or a degree went down.
 BezierPatch starting_patch(const Scene& scene, const ScenePatch& p, int degree_u, int degree_v) {
-    if (p.solved && p.patch.degree_u() == degree_u && p.patch.degree_v() == degree_v) {
-        return p.patch;
+    if (p.solved && p.patch.degree_u() <= degree_u && p.patch.degree_v() <= degree_v) {
+        return p.patch.elevated_u(degree_u - p.patch.degree_u())
+            .elevated_v(degree_v - p.patch.degree_v());
     }
     return initial_patch(scene, p);
 }
@@ -180,8 +183,19 @@ resolve_boundaries(const Scene& scene, const FromBoundaries& recipe, const std::
     vmin = with_ends(vmin, s00, s10);
     vmax = with_ends(vmax, s01, s11);
 
-    const int du = std::max(vmin.degree(), vmax.degree());
-    const int dv = std::max(umin.degree(), umax.degree());
+    auto requested = [&](const std::optional<int>& degree, int curves, const char* name) {
+        if (degree.has_value() && *degree < curves) {
+            throw std::invalid_argument(
+                fmt::format("patch '{}': {} {} is below its curves' degree {} in that direction",
+                            patch_id,
+                            name,
+                            *degree,
+                            curves));
+        }
+        return degree.value_or(curves);
+    };
+    const int du = requested(recipe.degree_u, std::max(vmin.degree(), vmax.degree()), "degree_u");
+    const int dv = requested(recipe.degree_v, std::max(umin.degree(), umax.degree()), "degree_v");
     return {raised_to(umin, dv), raised_to(umax, dv), raised_to(vmin, du), raised_to(vmax, du)};
 }
 
@@ -583,7 +597,9 @@ std::vector<std::string> add_network(Scene& scene, const NetworkSpec& spec) {
                              FromBoundaries{{spec.along_v[c][r],
                                              spec.along_v[c + 1][r],
                                              spec.along_u[r][c],
-                                             spec.along_u[r + 1][c]}},
+                                             spec.along_u[r + 1][c]},
+                                            std::nullopt,
+                                            std::nullopt},
                              false};
             patch.patch = initial_patch(scene, patch);
             scene.patches.push_back(std::move(patch));

@@ -65,10 +65,11 @@ Scene boundary_scene(const BezierPatch& source) {
     for (const auto& [id, edge] : sides) {
         scene.curves.push_back({id, source.boundary(edge), std::nullopt});
     }
-    ada::ScenePatch patch{"panel",
-                          BezierPatch(1, 1, std::vector<Vec3>(4, Vec3::Zero())),
-                          ada::FromBoundaries{{"umin", "umax", "vmin", "vmax"}},
-                          false};
+    ada::ScenePatch patch{
+        "panel",
+        BezierPatch(1, 1, std::vector<Vec3>(4, Vec3::Zero())),
+        ada::FromBoundaries{{"umin", "umax", "vmin", "vmax"}, std::nullopt, std::nullopt},
+        false};
     patch.patch = ada::initial_patch(scene, patch);
     scene.patches.push_back(std::move(patch));
     return scene;
@@ -148,28 +149,11 @@ void require_joins(const Scene& scene) {
     }
 }
 
-std::string failed_checks(const ada::QualityReport& report) {
+/// Every failed check on one line, for INFO and substring checks.
+std::string failure_text(const ada::QualityReport& report) {
     std::string out;
-    for (const auto& p : report.patches) {
-        for (const auto& c : p.checks) {
-            if (!c.pass) {
-                out += p.id + ": " + c.name + " ";
-            }
-        }
-    }
-    for (const auto& e : report.edges) {
-        for (const auto& c : e.checks) {
-            if (!c.pass) {
-                out += e.link.a.patch + "~" + e.link.b.patch + ": " + c.name + " ";
-            }
-        }
-    }
-    for (const auto& s : report.symmetry) {
-        for (const auto& c : s.checks) {
-            if (!c.pass) {
-                out += s.link.edge.patch + " Y0: " + c.name + " ";
-            }
-        }
+    for (const ada::FailedCheck& f : ada::failed_checks(report)) {
+        out += f.where + ": " + f.check.name + " ";
     }
     return out;
 }
@@ -265,10 +249,10 @@ TEST_CASE("an unsolved patch fails the report until the scene is solved", "[doc]
     Scene scene = boundary_scene(dome());
     const ada::QualityReport before = ada::compute_quality(scene);
     CHECK_FALSE(before.pass);
-    CHECK(failed_checks(before).find("unsolved") != std::string::npos);
+    CHECK(failure_text(before).find("unsolved") != std::string::npos);
     ada::solve_scene(scene);
     const ada::QualityReport after = ada::compute_quality(scene);
-    INFO(failed_checks(after));
+    INFO(failure_text(after));
     CHECK(after.pass);
 }
 
@@ -338,7 +322,7 @@ TEST_CASE("a symmetric 2x2 network from curves through points comes out G2", "[d
     CHECK(worst < 5.0);
 
     const ada::QualityReport report = ada::compute_quality(scene);
-    INFO(failed_checks(report));
+    INFO(failure_text(report));
     CHECK(report.pass);
 }
 
@@ -388,4 +372,66 @@ TEST_CASE("undo and redo restore whole scenes", "[doc][history]") {
     history.record(forward); // a new edit clears what could be redone
     CHECK_FALSE(history.can_redo());
     CHECK_THROWS_AS(ada::History().undo(scene), std::logic_error);
+}
+
+TEST_CASE("a degree override raises a from_boundaries patch exactly", "[doc][recipes]") {
+    Scene scene = boundary_scene(dome());
+    std::get<ada::FromBoundaries>(*scene.patches[0].recipe).degree_u = 5;
+    ada::solve_scene(scene);
+    const BezierPatch& p = scene.patches[0].patch;
+    CHECK(p.degree_u() == 5);
+    CHECK(p.degree_v() == 3);
+
+    // Still on its curves: they were degree-elevated, not refitted.
+    const std::array<std::pair<const char*, Edge>, 4> sides{
+        {{"umin", Edge::UMin}, {"umax", Edge::UMax}, {"vmin", Edge::VMin}, {"vmax", Edge::VMax}}};
+    for (const auto& [id, edge] : sides) {
+        const BezierCurve curve = scene.curve(id).curve;
+        const BezierCurve side = p.boundary(edge);
+        for (std::size_t k = 0; k < kEdgeSamples; ++k) {
+            const double t = static_cast<double>(k) / (kEdgeSamples - 1);
+            CHECK((side.evaluate(t) - curve.evaluate(t)).norm() < kSameMm);
+        }
+    }
+
+    const Scene back = ada::scene_from_json(ada::scene_to_json(scene));
+    const auto& recipe = std::get<ada::FromBoundaries>(*back.patches[0].recipe);
+    CHECK(recipe.degree_u == 5);
+    CHECK_FALSE(recipe.degree_v.has_value());
+}
+
+TEST_CASE("a degree override below the curves' degree is refused", "[doc][recipes]") {
+    Scene scene = boundary_scene(dome());
+    std::get<ada::FromBoundaries>(*scene.patches[0].recipe).degree_v = 2;
+    CHECK_THROWS_AS(ada::solve_scene(scene), std::invalid_argument);
+}
+
+TEST_CASE("raising a degree starts the solve from the same surface", "[doc][recipes]") {
+    // A least-change solve returns its start whenever the start already meets
+    // the constraints, so it shows what the solve started from. Store a
+    // surface that is not the recipe's Coons start, then raise the degrees.
+    const BezierPatch stored = nudge(dome(), 1, 2, 6.0);
+    Scene scene = boundary_scene(dome());
+    scene.patches[0].patch = stored;
+    scene.patches[0].solved = true;
+    scene.solve.fairness = 0.0;
+    scene.solve.move = 1.0;
+    auto& recipe = std::get<ada::FromBoundaries>(*scene.patches[0].recipe);
+    recipe.degree_u = 4;
+    recipe.degree_v = 5;
+    ada::solve_scene(scene);
+
+    REQUIRE(scene.patches[0].patch.degree_u() == 4);
+    REQUIRE(scene.patches[0].patch.degree_v() == 5);
+    const PatchEvaluator raised(scene.patches[0].patch);
+    const PatchEvaluator before(stored);
+    double worst = 0.0;
+    for (std::size_t i = 0; i < kEdgeSamples; ++i) {
+        for (std::size_t j = 0; j < kEdgeSamples; ++j) {
+            const double u = static_cast<double>(i) / (kEdgeSamples - 1);
+            const double v = static_cast<double>(j) / (kEdgeSamples - 1);
+            worst = std::max(worst, (raised.evaluate(u, v) - before.evaluate(u, v)).norm());
+        }
+    }
+    CHECK(worst < kSameMm);
 }

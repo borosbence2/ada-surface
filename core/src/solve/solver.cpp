@@ -15,9 +15,11 @@ namespace ada {
 
 namespace {
 
-/// Shown in an inconsistency error: enough to point at the conflict, few
-/// enough to read.
-constexpr std::size_t kReportedConflicts = 3;
+/// Shown in an inconsistency error: every constraint carrying at least
+/// `kConflictShare` of the worst residual, at most `kReportedConflicts` of
+/// them. Enough to name every side of a contradiction, few enough to read.
+constexpr std::size_t kReportedConflicts = 6;
+constexpr double kConflictShare = 0.1;
 
 struct Layout {
     std::vector<std::size_t> offset; // first unknown of each patch
@@ -95,9 +97,15 @@ fairness(const std::vector<BezierPatch>& patches, const Layout& layout, Fairness
     return f;
 }
 
-std::string describe_conflicts(const SolveProblem& problem,
-                               const AxisSystem& system,
-                               const Eigen::VectorXd& residual) {
+std::vector<ConstraintResidual> conflicts(const SolveProblem& problem, const AxisSystem& system) {
+    // The least-squares residual. The residual of the solution through an
+    // independent subset of the equations lands entirely on the equations left
+    // out, which names only one side of a contradiction; this one spreads over
+    // every constraint taking part.
+    Eigen::CompleteOrthogonalDecomposition<Eigen::MatrixXd> cod(system.c);
+    cod.setThreshold(tol::kConstraintRank);
+    const Eigen::VectorXd residual = system.c * cod.solve(system.d) - system.d;
+
     std::map<std::string, double> by_label;
     for (Eigen::Index r = 0; r < residual.size(); ++r) {
         const std::string& label =
@@ -106,17 +114,23 @@ std::string describe_conflicts(const SolveProblem& problem,
     }
     std::vector<std::pair<std::string, double>> sorted(by_label.begin(), by_label.end());
     std::sort(sorted.begin(), sorted.end(), [](const auto& x, const auto& y) {
-        return x.second > y.second;
+        return x.second != y.second ? x.second > y.second : x.first < y.first;
     });
-    std::string text;
+    std::vector<ConstraintResidual> worst;
     for (std::size_t k = 0; k < std::min(kReportedConflicts, sorted.size()); ++k) {
-        if (sorted[k].second <= 0.0) {
+        if (sorted[k].second <= 0.0 || sorted[k].second < kConflictShare * sorted[0].second) {
             break;
         }
-        text += fmt::format("{}{} ({:.3g} mm)",
-                            k == 0 ? "" : ", ",
-                            sorted[k].first.empty() ? "unlabelled" : sorted[k].first,
-                            sorted[k].second);
+        worst.push_back(
+            {sorted[k].first.empty() ? "unlabelled" : sorted[k].first, sorted[k].second});
+    }
+    return worst;
+}
+
+std::string describe(const std::vector<ConstraintResidual>& conflicts) {
+    std::string text;
+    for (const ConstraintResidual& c : conflicts) {
+        text += fmt::format("{}{} ({:.3g} mm)", text.empty() ? "" : ", ", c.label, c.max_residual);
     }
     return text;
 }
@@ -188,10 +202,13 @@ SolveResult solve(const SolveProblem& problem) {
 
             const Eigen::VectorXd residual = system.c * particular - system.d;
             if (residual.cwiseAbs().maxCoeff() > tol::kConstraintConsistency * scale) {
-                throw SolveError(fmt::format("the constraints contradict each other on the {} "
-                                             "axis; the largest conflicts are: {}",
-                                             "xyz"[axis],
-                                             describe_conflicts(problem, system, residual)));
+                std::vector<ConstraintResidual> worst = conflicts(problem, system);
+                const std::string message =
+                    fmt::format("the constraints contradict each other on "
+                                "the {} axis; the largest conflicts are: {}",
+                                "xyz"[axis],
+                                describe(worst));
+                throw SolveError(message, std::move(worst));
             }
         }
 

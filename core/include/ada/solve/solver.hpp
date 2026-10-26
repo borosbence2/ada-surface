@@ -67,7 +67,16 @@ struct SolveResult {
 /// message names the constraints involved.
 class SolveError : public std::runtime_error {
 public:
-    using std::runtime_error::runtime_error;
+    explicit SolveError(const std::string& message, std::vector<ConstraintResidual> conflicts = {})
+        : std::runtime_error(message),
+          conflicts_(std::move(conflicts)) {}
+
+    /// For contradicting constraints: the labels with the largest residuals,
+    /// worst first. Empty for other errors.
+    const std::vector<ConstraintResidual>& conflicts() const noexcept { return conflicts_; }
+
+private:
+    std::vector<ConstraintResidual> conflicts_;
 };
 
 /// Minimises `fairness * E + move * |x - x_current|^2` over all control points

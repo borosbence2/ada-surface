@@ -5,11 +5,12 @@ curves, a target shape and plain language, and an agent builds it. A
 deterministic Bézier kernel holds the continuity, and every result comes with
 a quality report.
 
-> Status: M6 done. Scenes are written as curves through points plus recipes;
+> Status: M7 done. Scenes are written as curves through points plus recipes;
 > `ada solve` turns them into G2-continuous Bézier surfaces, `ada bench`
 > checks the case ladder against its budgets, and `ada export` writes IGES,
-> which OpenCASCADE measures again independently. The agent's editing tools
-> come next (M7). See [MILESTONES.md](MILESTONES.md).
+> which OpenCASCADE measures again independently. An agent can now build and
+> edit scenes through `ada-mcp`'s tools; the craft guide for it comes next
+> (M8). See [MILESTONES.md](MILESTONES.md).
 
 ## Building
 
@@ -51,11 +52,34 @@ version, which the tests check. Compare the two hood examples in `cases/examples
 in `hood.ada.json` (G2 across the front/rear joint) the stripes flow through
 the joint; in `hood-g1-only.ada.json` (G1 only) they kink there.
 
-To drive the kernel from Claude Code instead (open, summarise, report, solve):
+### Driving it from Claude Code
+
+`ada-mcp` is an MCP server, so Claude Code (or any MCP client) can build and
+change scenes through it:
 
 ```
-claude mcp add ada -- <repo>/build/dev/bin/ada-mcp --scene <repo>/cases/examples/hood.ada.json
+claude mcp add ada -- <repo>/build/dev/bin/ada-mcp
+claude mcp add ada -- <repo>/build/dev/bin/ada-mcp --scene <repo>/my.ada.json   # with a scene open
 ```
+
+Then ask in plain language, for example "make a new scene for a hood, 1200 x
+1400 mm, symmetric at Y = 0, as a 2 x 2 network of curves, G2 everywhere".
+Open the same file in Studio to watch it change. The agent works with these
+tools:
+
+| Tool | What it does |
+|---|---|
+| `scene_new`, `scene_open`, `scene_summary` | create, open and list a scene |
+| `curve_from_points` | feature lines through points (several at once; `replace` to change them) |
+| `patch_from_boundaries`, `network_from_curves`, `patch_blend` | surfaces from four curves, from a curve grid, or filling a gap between two edges |
+| `edge_constrain`, `symmetry_constrain` | G0/G1/G2 across an edge, or at Y = 0 against the mirror image |
+| `patch_set_degree`, `fairness_set` | more freedom for the solver; fairest surface versus least change |
+| `quality_report`, `get_selection` | the full report; what the user picked in Studio ("this edge") |
+| `undo`, `redo`, `solve`, `export_iges` | history, re-solve a hand-edited file, IGES out |
+
+No tool sets control points. Every edit solves the scene and writes the file;
+an edit that cannot be solved is refused with an error code, the reason and
+what to try, and leaves the file as it was.
 
 ## Idea
 

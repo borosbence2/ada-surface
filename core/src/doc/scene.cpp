@@ -132,6 +132,19 @@ SceneCurve curve_from_json(const nlohmann::json& json, const std::string& where)
     return curve;
 }
 
+std::optional<int>
+optional_degree(const nlohmann::json& json, const char* name, const std::string& where) {
+    if (!json.contains(name)) {
+        return std::nullopt;
+    }
+    const nlohmann::json& value = json.at(name);
+    if (!value.is_number_integer() || value.get<int>() < 1 || value.get<int>() > kMaxRecipeDegree) {
+        fail(fmt::format("{}.{}", where, name),
+             fmt::format("expected an integer from 1 to {}", kMaxRecipeDegree));
+    }
+    return value.get<int>();
+}
+
 Recipe recipe_from_json(const nlohmann::json& json, const std::string& where) {
     const std::string type = string_field(json, "type", where);
     if (type == "from_boundaries") {
@@ -140,6 +153,8 @@ Recipe recipe_from_json(const nlohmann::json& json, const std::string& where) {
         for (std::size_t k = 0; k < 4; ++k) {
             recipe.curves[k] = string_field(json, to_string(order[k]), where);
         }
+        recipe.degree_u = optional_degree(json, "degree_u", where);
+        recipe.degree_v = optional_degree(json, "degree_v", where);
         return recipe;
     }
     if (type == "blend") {
@@ -149,12 +164,7 @@ Recipe recipe_from_json(const nlohmann::json& json, const std::string& where) {
                          ? continuity_from_json(json.at("continuity"), where + ".continuity")
                          : Continuity::G2,
                      std::nullopt};
-        if (json.contains("degree_across")) {
-            if (!json.at("degree_across").is_number_integer()) {
-                fail(where + ".degree_across", "expected an integer");
-            }
-            recipe.degree_across = json.at("degree_across").get<int>();
-        }
+        recipe.degree_across = optional_degree(json, "degree_across", where);
         return recipe;
     }
     fail(where + ".type",
@@ -163,11 +173,18 @@ Recipe recipe_from_json(const nlohmann::json& json, const std::string& where) {
 
 nlohmann::json recipe_to_json(const Recipe& recipe) {
     if (const auto* fb = std::get_if<FromBoundaries>(&recipe)) {
-        return {{"type", "from_boundaries"},
-                {"UMin", fb->curves[0]},
-                {"UMax", fb->curves[1]},
-                {"VMin", fb->curves[2]},
-                {"VMax", fb->curves[3]}};
+        nlohmann::json out = {{"type", "from_boundaries"},
+                              {"UMin", fb->curves[0]},
+                              {"UMax", fb->curves[1]},
+                              {"VMin", fb->curves[2]},
+                              {"VMax", fb->curves[3]}};
+        if (fb->degree_u.has_value()) {
+            out["degree_u"] = *fb->degree_u;
+        }
+        if (fb->degree_v.has_value()) {
+            out["degree_v"] = *fb->degree_v;
+        }
+        return out;
     }
     const auto& b = std::get<Blend>(recipe);
     nlohmann::json out = {{"type", "blend"},

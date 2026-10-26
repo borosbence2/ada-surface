@@ -81,7 +81,7 @@ void single(Scene& scene,
     const std::string vmax = add_curve(scene, id + "_vmax", sample(shape, a0, b1, a1, b1));
     ScenePatch patch{id,
                      BezierPatch(1, 1, std::vector<Vec3>(4, Vec3::Zero())),
-                     FromBoundaries{{umin, umax, vmin, vmax}},
+                     FromBoundaries{{umin, umax, vmin, vmax}, std::nullopt, std::nullopt},
                      false};
     patch.patch = initial_patch(scene, patch);
     scene.patches.push_back(std::move(patch));

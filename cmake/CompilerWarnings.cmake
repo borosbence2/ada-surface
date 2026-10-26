@@ -42,6 +42,11 @@ else()
             -Wuseless-cast
         )
     endif()
+    if(MINGW)
+        # Same as /bigobj above: Eigen's decompositions in a Debug build
+        # overflow the COFF section limit ("file too big").
+        target_compile_options(ada_warnings INTERFACE -Wa,-mbig-obj)
+    endif()
     if(ADA_WARNINGS_AS_ERRORS)
         target_compile_options(ada_warnings INTERFACE -Werror)
     endif()

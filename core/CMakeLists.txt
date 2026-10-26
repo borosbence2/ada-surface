@@ -50,6 +50,7 @@ add_library(ada_core STATIC
     src/doc/history.cpp
     src/doc/recipes.cpp
     src/doc/scene.cpp
+    src/doc/topology.cpp
     src/geom/bezier_curve.cpp
     src/geom/bezier_patch.cpp
     src/geom/closest_point.cpp

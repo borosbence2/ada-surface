@@ -285,6 +285,27 @@ nlohmann::json to_json(const QualityReport& report) {
     };
 }
 
+std::vector<FailedCheck> failed_checks(const QualityReport& report) {
+    std::vector<FailedCheck> failed;
+    auto list = [&failed](const std::string& where, const std::vector<Check>& checks) {
+        for (const Check& c : checks) {
+            if (!c.pass) {
+                failed.push_back({where, c});
+            }
+        }
+    };
+    for (const PatchReport& r : report.patches) {
+        list("patch " + r.id, r.checks);
+    }
+    for (const EdgeReport& r : report.edges) {
+        list("edge " + edge_name(r.link.a) + " ~ " + edge_name(r.link.b), r.checks);
+    }
+    for (const SymmetryReport& r : report.symmetry) {
+        list("symmetry " + edge_name(r.link.edge), r.checks);
+    }
+    return failed;
+}
+
 std::string format_report(const QualityReport& report) {
     auto verdict = [](bool pass) { return pass ? "pass" : "FAIL"; };
     std::string out = fmt::format("quality: {}\n", report.pass ? "PASS" : "FAIL");
@@ -336,22 +357,12 @@ std::string format_report(const QualityReport& report) {
     }
 
     std::string failures;
-    auto list = [&failures](const std::string& where, const std::vector<Check>& checks) {
-        for (const Check& c : checks) {
-            if (!c.pass) {
-                failures += fmt::format(
-                    "  {}: {} = {:.4g} exceeds {:.4g}\n", where, c.name, c.value, c.budget);
-            }
-        }
-    };
-    for (const PatchReport& r : report.patches) {
-        list("patch " + r.id, r.checks);
-    }
-    for (const EdgeReport& r : report.edges) {
-        list("edge " + edge_name(r.link.a) + " ~ " + edge_name(r.link.b), r.checks);
-    }
-    for (const SymmetryReport& r : report.symmetry) {
-        list("symmetry " + edge_name(r.link.edge), r.checks);
+    for (const FailedCheck& f : failed_checks(report)) {
+        failures += fmt::format("  {}: {} = {:.4g} exceeds {:.4g}\n",
+                                f.where,
+                                f.check.name,
+                                f.check.value,
+                                f.check.budget);
     }
     if (!failures.empty()) {
         out += "\nfailed checks\n" + failures;

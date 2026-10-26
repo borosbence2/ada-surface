@@ -8,6 +8,7 @@
 #include "ada/io/iges.hpp"
 
 #include "base64.hpp"
+#include "common.hpp"
 
 #include <Eigen/Geometry>
 #include <fmt/format.h>
@@ -29,30 +30,8 @@ constexpr int kMaxCombSamples = 513;
 
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 
-/// Curve adjustments smaller than this are rounding, not worth a line.
-constexpr double kReportedCurveDeviationMm = 1e-6;
-
-int integer_argument(const nlohmann::json& args, const char* name, int fallback, int lo, int hi) {
-    if (!args.contains(name)) {
-        return fallback;
-    }
-    const nlohmann::json& value = args.at(name);
-    if (!value.is_number_integer()) {
-        throw ToolError(fmt::format("'{}' must be an integer", name));
-    }
-    const int n = value.get<int>();
-    if (n < lo || n > hi) {
-        throw ToolError(fmt::format("'{}' must be between {} and {}, got {}", name, lo, hi, n));
-    }
-    return n;
-}
-
 nlohmann::json vec3(const Vec3& v) {
     return nlohmann::json::array({v.x(), v.y(), v.z()});
-}
-
-std::string edge_name(const EdgeRef& ref) {
-    return fmt::format("{}.{}", ref.patch, to_string(ref.edge));
 }
 
 nlohmann::json summary_json(const SceneSession& session, const Scene& scene) {
@@ -66,8 +45,19 @@ nlohmann::json summary_json(const SceneSession& session, const Scene& scene) {
         }
         nlohmann::json recipe = nullptr;
         if (p.recipe.has_value()) {
-            recipe =
-                std::holds_alternative<FromBoundaries>(*p.recipe) ? "from_boundaries" : "blend";
+            if (const auto* fb = std::get_if<FromBoundaries>(&*p.recipe)) {
+                recipe = {{"type", "from_boundaries"},
+                          {"UMin", fb->curves[0]},
+                          {"UMax", fb->curves[1]},
+                          {"VMin", fb->curves[2]},
+                          {"VMax", fb->curves[3]}};
+            } else {
+                const auto& b = std::get<Blend>(*p.recipe);
+                recipe = {{"type", "blend"},
+                          {"from", edge_name(b.from)},
+                          {"to", edge_name(b.to)},
+                          {"continuity", to_string(b.continuity)}};
+            }
         }
         patches.push_back({{"id", p.id},
                            {"recipe", recipe},
@@ -77,10 +67,17 @@ nlohmann::json summary_json(const SceneSession& session, const Scene& scene) {
                            {"control_net_bounds", {{"min", vec3(lo)}, {"max", vec3(hi)}}}});
     }
     nlohmann::json edges = nlohmann::json::array();
-    for (const EdgeLink& link : scene.edges) {
+    for (const EdgeLink& link : all_edge_links(scene)) {
         edges.push_back({{"a", edge_name(link.a)},
                          {"b", edge_name(link.b)},
                          {"continuity", to_string(link.continuity)}});
+    }
+    nlohmann::json curves = nlohmann::json::array();
+    for (const SceneCurve& c : scene.curves) {
+        curves.push_back({{"id", c.id},
+                          {"degree", c.curve.degree()},
+                          {"start", vec3(c.curve.control_points().front())},
+                          {"end", vec3(c.curve.control_points().back())}});
     }
     nlohmann::json symmetry = nlohmann::json::array();
     for (const SymmetryLink& link : scene.symmetry) {
@@ -88,7 +85,8 @@ nlohmann::json summary_json(const SceneSession& session, const Scene& scene) {
             {{"edge", edge_name(link.edge)}, {"continuity", to_string(link.continuity)}});
     }
     return {{"path", session.path().generic_string()},
-            {"curves", scene.curves.size()},
+            {"description", scene.description},
+            {"curves", std::move(curves)},
             {"patches", std::move(patches)},
             {"edges", std::move(edges)},
             {"symmetry", std::move(symmetry)},
@@ -98,20 +96,32 @@ nlohmann::json summary_json(const SceneSession& session, const Scene& scene) {
 /// Text form of the summary for clients without structured content and for
 /// the agent's transcript.
 std::string summary_text(const nlohmann::json& summary) {
-    std::string text = fmt::format("scene {}: {} patches, {} linked edges, {} symmetry links",
-                                   summary.at("path").get<std::string>(),
-                                   summary.at("patches").size(),
-                                   summary.at("edges").size(),
-                                   summary.at("symmetry").size());
+    std::string text =
+        fmt::format("scene {}: {} curves, {} patches, {} linked edges, {} symmetry links",
+                    summary.at("path").get<std::string>(),
+                    summary.at("curves").size(),
+                    summary.at("patches").size(),
+                    summary.at("edges").size(),
+                    summary.at("symmetry").size());
     for (const auto& p : summary.at("patches")) {
-        text +=
-            fmt::format("\n  {} degree {}x{}{}{}",
-                        p.at("id").get<std::string>(),
-                        p.at("degree")[0].get<int>(),
-                        p.at("degree")[1].get<int>(),
-                        p.at("recipe").is_null() ? std::string(" (fixed)")
-                                                 : " (" + p.at("recipe").get<std::string>() + ")",
-                        p.at("solved").get<bool>() ? "" : " UNSOLVED");
+        text += fmt::format("\n  {} degree {}x{} ({}){}",
+                            p.at("id").get<std::string>(),
+                            p.at("degree")[0].get<int>(),
+                            p.at("degree")[1].get<int>(),
+                            p.at("recipe").is_null() ? std::string("fixed")
+                                                     : p.at("recipe").at("type").get<std::string>(),
+                            p.at("solved").get<bool>() ? "" : " UNSOLVED");
+    }
+    for (const auto& e : summary.at("edges")) {
+        text += fmt::format("\n  {} ~ {} {}",
+                            e.at("a").get<std::string>(),
+                            e.at("b").get<std::string>(),
+                            e.at("continuity").get<std::string>());
+    }
+    for (const auto& s : summary.at("symmetry")) {
+        text += fmt::format("\n  {} ~ mirror (Y = 0) {}",
+                            s.at("edge").get<std::string>(),
+                            s.at("continuity").get<std::string>());
     }
     return text;
 }
@@ -147,16 +157,18 @@ ToolResult quality_report(SceneSession& session) {
     return {format_report(report), std::move(json), false};
 }
 
-ToolResult solve(SceneSession& session) {
+ToolResult solve(SceneSession& session, History& history) {
     Scene scene = session.current();
+    const Scene before = scene;
     const SceneSolveSummary summary = solve_scene(scene);
+    history.record(before);
     write_scene(scene, session.path());
 
     nlohmann::json curves = nlohmann::json::array();
     std::string moved;
     for (const CurveDeviation& c : summary.curves) {
         curves.push_back({{"curve", c.curve}, {"max_mm", c.max_mm}});
-        if (c.max_mm > kReportedCurveDeviationMm) {
+        if (c.max_mm > kReportedDeviationMm) {
             moved +=
                 fmt::format("curve {} moved up to {:.3f} mm for continuity\n", c.curve, c.max_mm);
         }

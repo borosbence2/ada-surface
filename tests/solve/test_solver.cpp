@@ -245,6 +245,20 @@ TEST_CASE("contradicting constraints are reported by label", "[solve][solver]") 
         CHECK(message.find("contradict") != std::string::npos);
         CHECK((message.find("rear row held") != std::string::npos ||
                message.find("G0 front~rear") != std::string::npos));
+
+        // The same, as data a caller can act on: worst first, all nonzero.
+        const std::vector<ada::ConstraintResidual>& conflicts = e.conflicts();
+        REQUIRE_FALSE(conflicts.empty());
+        bool named = false;
+        for (std::size_t k = 0; k < conflicts.size(); ++k) {
+            CHECK(conflicts[k].max_residual > 0.0);
+            if (k > 0) {
+                CHECK(conflicts[k].max_residual <= conflicts[k - 1].max_residual);
+            }
+            named = named || conflicts[k].label == "rear row held" ||
+                    conflicts[k].label == "G0 front~rear";
+        }
+        CHECK(named);
     }
 }
 

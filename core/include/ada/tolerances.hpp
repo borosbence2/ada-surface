@@ -87,4 +87,10 @@ inline constexpr double kCurveCornerGap = 1e-6;
 /// enough that the curve moves only as far as the constraints force it to.
 inline constexpr double kCurveTargetWeight = 1e4;
 
+/// Two patch edges touch, or an edge lies in the centre plane, when they are
+/// closer than this fraction of the model size (1.2 mm on a 1.2 m hood). A
+/// coarse test that tells the right edge from the wrong one before a link is
+/// made; how well linked edges then join is the quality report's business.
+inline constexpr double kEdgeContact = 1e-3;
+
 } // namespace ada::tol
