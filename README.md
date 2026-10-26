@@ -58,9 +58,19 @@ the joint; in `hood-g1-only.ada.json` (G1 only) they kink there.
 change scenes through it:
 
 ```
-claude mcp add ada -- <repo>/build/dev/bin/ada-mcp
-claude mcp add ada -- <repo>/build/dev/bin/ada-mcp --scene <repo>/my.ada.json   # with a scene open
+cmake --preset release && cmake --build --preset release
+cd <repo>
+claude mcp add ada -- <repo>/build/release/bin/ada-mcp
+claude mcp add ada -- <repo>/build/release/bin/ada-mcp --scene <repo>/my.ada.json   # with a scene open
 ```
+
+Point it at the release build: a running server locks its executable on
+Windows, which would otherwise block rebuilding `build/dev`. The server is
+registered for the directory `claude mcp add` runs in, so start Claude Code
+there. With only the VS Code extension installed, `claude` is not on the PATH;
+the extension ships it as
+`%USERPROFILE%\.vscode\extensionsnthropic.claude-code-<version>-win32-x64esources
+ative-binary\claude.exe`.
 
 Then ask in plain language, for example "make a new scene for a hood, 1200 x
 1400 mm, symmetric at Y = 0, as a 2 x 2 network of curves, G2 everywhere".
