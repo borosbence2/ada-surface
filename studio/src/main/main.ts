@@ -15,6 +15,7 @@ import type {
   SolveOutcome,
   Startup,
 } from '../shared/types';
+import { kViewModes, resolveViewMode } from '../shared/views';
 import { decodeTessellation } from './decode';
 import { Kernel } from './kernel';
 import { kernelCandidates, pickKernel } from './kernel-path';
@@ -292,7 +293,16 @@ function createWindow(): void {
 }
 
 void app.whenReady().then(async () => {
-  const startup: Startup = { scene: startupScene(), view: flag('view') ?? null };
+  const viewFlag = flag('view');
+  const view = viewFlag === undefined ? null : resolveViewMode(viewFlag);
+  if (viewFlag !== undefined && view === null) {
+    console.error(
+      `ADA Studio: unknown --view '${viewFlag}'; use one of ${kViewModes.map((m) => m.mode).join(', ')}`,
+    );
+    app.exit(2);
+    return;
+  }
+  const startup: Startup = { scene: startupScene(), view };
   ipcMain.handle(Channels.startup, () => startup);
   ipcMain.handle(Channels.kernelStatusNow, () => kernelStatus);
   registerIpc();

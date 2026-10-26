@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { resolveViewMode } from '../shared/views';
 import { decodeF32, decodeTessellation, decodeU32 } from './decode';
 import { kernelCandidates, pickKernel } from './kernel-path';
 
@@ -73,5 +74,19 @@ describe('kernel location', () => {
     expect(kernelCandidates(base)).toEqual(
       ['release', 'dev', 'ci'].map((preset) => path.join(repo, 'build', preset, 'bin', 'ada-mcp')),
     );
+  });
+});
+
+describe('--view names', () => {
+  it('accepts a mode id or its toolbar label, in any case', () => {
+    expect(resolveViewMode('highlight')).toBe('highlight');
+    expect(resolveViewMode('Highlights')).toBe('highlight');
+    expect(resolveViewMode('mean k')).toBe('mean');
+    expect(resolveViewMode(' ZEBRA ')).toBe('zebra');
+  });
+
+  it('rejects anything else instead of falling back to a default', () => {
+    expect(resolveViewMode('highlites')).toBeNull();
+    expect(resolveViewMode('')).toBeNull();
   });
 });
