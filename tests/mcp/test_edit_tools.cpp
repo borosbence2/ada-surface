@@ -176,6 +176,10 @@ TEST_CASE("scene_new creates an empty scene and will not overwrite one", "[mcp][
           "file_exists");
     CHECK(fails(server, "scene_new", {{"path", dir.file("test.json")}}).at("code") ==
           "invalid_arguments");
+    // A new scene may go in a new folder.
+    ok(server, "scene_new", {{"path", dir.file("new/folder/scene.ada.json")}});
+    CHECK(std::filesystem::exists(dir.path / "new" / "folder" / "scene.ada.json"));
+    ok(server, "scene_open", {{"path", dir.file("test.ada.json")}});
     ok(server,
        "scene_new",
        {{"path", dir.file("test.ada.json")},
@@ -406,12 +410,14 @@ TEST_CASE("undo and redo step through edits", "[mcp][edit]") {
     ok(server, "curve_from_points", {{"curves", {curve("b", line(0, 10, 600, 10))}}});
     const std::string two = contents(file);
 
-    ok(server, "undo");
+    // An agent sees the structured result, so it has to say what was undone.
+    const json undone = ok(server, "undo");
     CHECK(contents(file) == one);
+    CHECK(undone.at("changed") == "undid: added curves b");
     ok(server, "undo");
     CHECK(contents(file) == empty);
     CHECK(fails(server, "undo").at("code") == "nothing_to_undo");
-    ok(server, "redo");
+    CHECK(ok(server, "redo").at("changed") == "redid: added curves a");
     CHECK(contents(file) == one);
 
     // A new edit drops what could be redone.

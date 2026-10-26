@@ -225,7 +225,8 @@ void McpServer::register_tools() {
     // Editing. Each solves the scene and writes it back, or changes nothing.
     add_tool(
         "scene_new",
-        "Create an empty scene file and open it. A relative path is taken relative to the "
+        "Create an empty scene file (and its folder) and open it. A relative path is taken "
+        "relative to the "
         "open scene's directory, or the working directory when none is open.",
         object_schema(
             {{"path", {{"type", "string"}, {"description", "New file, ending in .ada.json"}}},

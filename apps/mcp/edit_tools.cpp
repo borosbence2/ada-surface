@@ -294,7 +294,7 @@ ToolResult apply_edit(SceneSession& session, History& history, const Edit& edit)
         } catch (const std::invalid_argument& e) {
             throw ToolError(e.what(), "unsolvable", "undo the edit or change it");
         }
-        history.record(before);
+        history.record(before, outcome.text);
         write_scene(after, session.path());
         return edit_result(outcome, summary, after);
     } catch (const ToolError& e) {
@@ -430,11 +430,14 @@ ToolResult scene_new(SceneSession& session, const nlohmann::json& args) {
                         "invalid_arguments",
                         "scene files are named <name>.ada.json");
     }
-    if (!std::filesystem::is_directory(path.parent_path())) {
-        throw ToolError(
-            fmt::format("there is no directory {}", path.parent_path().generic_string()),
-            "invalid_arguments",
-            "give a path in an existing directory");
+    std::error_code made;
+    std::filesystem::create_directories(path.parent_path(), made);
+    if (made) {
+        throw ToolError(fmt::format("cannot create the directory {}: {}",
+                                    path.parent_path().generic_string(),
+                                    made.message()),
+                        "invalid_arguments",
+                        "give a path in a directory that can be written");
     }
     if (std::filesystem::exists(path) && !bool_argument(args, "overwrite", false)) {
         throw ToolError(fmt::format("{} already exists", path.generic_string()),
@@ -938,10 +941,10 @@ ToolResult undo(SceneSession& session, History& history) {
                         "undo steps back through the edits these tools made since the scene was "
                         "opened");
     }
+    std::string text = "undid: " + history.undo_label();
     const Scene scene = history.undo(session.current());
     write_scene(scene, session.path());
-    std::string text = "undid the last edit";
-    nlohmann::json data = nlohmann::json::object();
+    nlohmann::json data = {{"changed", text}};
     add_quality(text, data, scene);
     return {std::move(text), std::move(data), false};
 }
@@ -952,10 +955,10 @@ ToolResult redo(SceneSession& session, History& history) {
                         "nothing_to_redo",
                         "redo repeats an edit that undo took back, until a new edit is made");
     }
+    std::string text = "redid: " + history.redo_label();
     const Scene scene = history.redo(session.current());
     write_scene(scene, session.path());
-    std::string text = "redid the edit";
-    nlohmann::json data = nlohmann::json::object();
+    nlohmann::json data = {{"changed", text}};
     add_quality(text, data, scene);
     return {std::move(text), std::move(data), false};
 }

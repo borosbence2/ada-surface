@@ -374,6 +374,22 @@ TEST_CASE("undo and redo restore whole scenes", "[doc][history]") {
     CHECK_THROWS_AS(ada::History().undo(scene), std::logic_error);
 }
 
+TEST_CASE("undo and redo say which edit they move over", "[doc][history]") {
+    ada::History history;
+    const Scene scene = boundary_scene(dome());
+    CHECK(history.undo_label().empty());
+    history.record(scene, "first");
+    history.record(scene, "second");
+    CHECK(history.undo_label() == "second");
+
+    const Scene back = history.undo(scene);
+    CHECK(history.undo_label() == "first");
+    CHECK(history.redo_label() == "second");
+    static_cast<void>(history.redo(back));
+    CHECK(history.undo_label() == "second");
+    CHECK(history.redo_label().empty());
+}
+
 TEST_CASE("a degree override raises a from_boundaries patch exactly", "[doc][recipes]") {
     Scene scene = boundary_scene(dome());
     std::get<ada::FromBoundaries>(*scene.patches[0].recipe).degree_u = 5;

@@ -161,7 +161,7 @@ ToolResult solve(SceneSession& session, History& history) {
     Scene scene = session.current();
     const Scene before = scene;
     const SceneSolveSummary summary = solve_scene(scene);
-    history.record(before);
+    history.record(before, "solved the scene");
     write_scene(scene, session.path());
 
     nlohmann::json curves = nlohmann::json::array();
