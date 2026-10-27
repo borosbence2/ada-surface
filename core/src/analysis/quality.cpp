@@ -195,13 +195,43 @@ QualityReport compute_quality(const Scene& scene, const AnalysisSettings& settin
         report.symmetry.push_back(std::move(r));
     }
 
+    if (scene.fit.has_value()) {
+        FitReport r;
+        r.target = scene.fit->target;
+        const auto target = std::find_if(scene.targets.begin(),
+                                         scene.targets.end(),
+                                         [&](const SceneTarget& t) { return t.id == r.target; });
+        if (target == scene.targets.end() || !target->points) {
+            r.loaded = false;
+            r.checks.push_back(flag("target_not_loaded", true));
+        } else {
+            std::vector<BezierPatch> patches;
+            for (const ScenePatch& p : scene.patches) {
+                patches.push_back(p.patch);
+            }
+            r.stats = fit_stats(assign_points(patches, *target->points));
+            if (b.fit_max_mm.has_value()) {
+                r.checks.push_back(at_most("fit_max_mm", r.stats.max_mm, *b.fit_max_mm));
+            }
+            if (b.fit_rms_mm.has_value()) {
+                r.checks.push_back(at_most("fit_rms_mm", r.stats.rms_mm, *b.fit_rms_mm));
+            }
+            if (b.fit_p95_mm.has_value()) {
+                r.checks.push_back(at_most("fit_p95_mm", r.stats.p95_mm, *b.fit_p95_mm));
+            }
+        }
+        r.pass = all_pass(r.checks);
+        report.fit = std::move(r);
+    }
+
     report.pass =
         std::all_of(
             report.patches.begin(), report.patches.end(), [](const auto& r) { return r.pass; }) &&
         std::all_of(
             report.edges.begin(), report.edges.end(), [](const auto& r) { return r.pass; }) &&
         std::all_of(
-            report.symmetry.begin(), report.symmetry.end(), [](const auto& r) { return r.pass; });
+            report.symmetry.begin(), report.symmetry.end(), [](const auto& r) { return r.pass; }) &&
+        (!report.fit.has_value() || report.fit->pass);
     return report;
 }
 
@@ -271,7 +301,7 @@ nlohmann::json to_json(const QualityReport& report) {
         });
     }
 
-    return {
+    nlohmann::json out = {
         {"pass", report.pass},
         {"budgets", to_json(report.budgets)},
         {"light",
@@ -283,6 +313,19 @@ nlohmann::json to_json(const QualityReport& report) {
         {"edges", std::move(edges)},
         {"symmetry", std::move(symmetry)},
     };
+    if (report.fit.has_value()) {
+        const FitReport& f = *report.fit;
+        out["fit"] = {{"target", f.target},
+                      {"loaded", f.loaded},
+                      {"points", f.stats.points},
+                      {"outside", f.stats.outside},
+                      {"max_mm", f.stats.max_mm},
+                      {"rms_mm", f.stats.rms_mm},
+                      {"p95_mm", f.stats.p95_mm},
+                      {"checks", to_json(f.checks)},
+                      {"pass", f.pass}};
+    }
+    return out;
 }
 
 std::vector<FailedCheck> failed_checks(const QualityReport& report) {
@@ -302,6 +345,9 @@ std::vector<FailedCheck> failed_checks(const QualityReport& report) {
     }
     for (const SymmetryReport& r : report.symmetry) {
         list("symmetry " + edge_name(r.link.edge), r.checks);
+    }
+    if (report.fit.has_value()) {
+        list("fit to " + report.fit->target, report.fit->checks);
     }
     return failed;
 }
@@ -354,6 +400,21 @@ std::string format_report(const QualityReport& report) {
                            r.measure.max_plane_distance,
                            r.measure.max_normal_tilt_deg,
                            verdict(r.pass));
+    }
+
+    if (report.fit.has_value()) {
+        const FitReport& f = *report.fit;
+        out += f.loaded
+                   ? fmt::format("\nfit to target {}\n  {} points ({} outside)  max {:.3f} mm  "
+                                 "rms {:.3f} mm  p95 {:.3f} mm  {}\n",
+                                 f.target,
+                                 f.stats.points,
+                                 f.stats.outside,
+                                 f.stats.max_mm,
+                                 f.stats.rms_mm,
+                                 f.stats.p95_mm,
+                                 verdict(f.pass))
+                   : fmt::format("\nfit to target {}: not loaded  FAIL\n", f.target);
     }
 
     std::string failures;

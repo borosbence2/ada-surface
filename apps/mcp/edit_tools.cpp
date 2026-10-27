@@ -942,10 +942,10 @@ ToolResult undo(SceneSession& session, History& history) {
                         "opened");
     }
     std::string text = "undid: " + history.undo_label();
-    const Scene scene = history.undo(session.current());
-    write_scene(scene, session.path());
+    write_scene(history.undo(session.current()), session.path());
     nlohmann::json data = {{"changed", text}};
-    add_quality(text, data, scene);
+    // Re-read: the snapshot has no target points, the file's targets do.
+    add_quality(text, data, session.current());
     return {std::move(text), std::move(data), false};
 }
 
@@ -956,10 +956,10 @@ ToolResult redo(SceneSession& session, History& history) {
                         "redo repeats an edit that undo took back, until a new edit is made");
     }
     std::string text = "redid: " + history.redo_label();
-    const Scene scene = history.redo(session.current());
-    write_scene(scene, session.path());
+    write_scene(history.redo(session.current()), session.path());
     nlohmann::json data = {{"changed", text}};
-    add_quality(text, data, scene);
+    // Re-read: the snapshot has no target points, the file's targets do.
+    add_quality(text, data, session.current());
     return {std::move(text), std::move(data), false};
 }
 

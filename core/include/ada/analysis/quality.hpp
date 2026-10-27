@@ -9,10 +9,12 @@
 #include "ada/analysis/cv_hull.hpp"
 #include "ada/analysis/highlight.hpp"
 #include "ada/doc/scene.hpp"
+#include "ada/fit/fit.hpp"
 
 #include <nlohmann/json.hpp>
 
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -61,12 +63,22 @@ struct SymmetryReport {
     bool pass = true;
 };
 
+/// How far the scene's target points are from its patches (L3).
+struct FitReport {
+    std::string target;
+    bool loaded = true; ///< false when the target's points were never read
+    FitStats stats;
+    std::vector<Check> checks;
+    bool pass = true;
+};
+
 struct QualityReport {
     Budgets budgets;
     LightPlane light;
     std::vector<PatchReport> patches;
     std::vector<EdgeReport> edges;
     std::vector<SymmetryReport> symmetry;
+    std::optional<FitReport> fit; ///< when the scene fits a target
     bool pass = true;
 };
 

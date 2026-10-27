@@ -2,10 +2,12 @@
 
 #include "ada/doc/recipes.hpp"
 #include "ada/geom/curve_fit.hpp"
+#include "ada/io/target.hpp"
 
 #include <fmt/format.h>
 
 #include <fstream>
+#include <map>
 #include <set>
 #include <stdexcept>
 #include <utility>
@@ -285,6 +287,15 @@ std::size_t Scene::patch_index(const std::string& id) const {
     throw std::invalid_argument(fmt::format("no patch with id '{}'", id));
 }
 
+const SceneTarget& Scene::target(const std::string& id) const {
+    for (const SceneTarget& t : targets) {
+        if (t.id == id) {
+            return t;
+        }
+    }
+    throw std::invalid_argument(fmt::format("no target with id '{}'", id));
+}
+
 const SceneCurve& Scene::curve(const std::string& id) const {
     for (const SceneCurve& c : curves) {
         if (c.id == id) {
@@ -462,6 +473,36 @@ Scene scene_from_json(const nlohmann::json& json) {
         fail("$.budgets", e.what());
     }
     scene.light = light_from_json(json.value("light", nlohmann::json(nullptr)), "$.light");
+
+    const nlohmann::json targets = json.value("targets", nlohmann::json::array());
+    std::set<std::string> target_ids;
+    for (std::size_t k = 0; k < targets.size(); ++k) {
+        const std::string where = fmt::format("$.targets[{}]", k);
+        SceneTarget target;
+        target.id = string_field(targets[k], "id", where);
+        target.file = string_field(targets[k], "file", where);
+        target.spacing = targets[k].value("spacing_mm", kDefaultTargetSpacing);
+        target.scale = targets[k].value("scale", 1.0);
+        if (!(target.spacing > 0.0) || !(target.scale > 0.0)) {
+            fail(where, "spacing_mm and scale must be positive");
+        }
+        if (!target_ids.insert(target.id).second) {
+            fail(where + ".id", fmt::format("duplicate target id '{}'", target.id));
+        }
+        scene.targets.push_back(std::move(target));
+    }
+    if (json.contains("fit")) {
+        const nlohmann::json& fit = json.at("fit");
+        FitSettings settings{string_field(fit, "target", "$.fit"),
+                             fit.value("weight", kDefaultFitWeight)};
+        if (target_ids.count(settings.target) == 0) {
+            fail("$.fit.target", fmt::format("no target with id '{}'", settings.target));
+        }
+        if (!(settings.weight >= 0.0)) {
+            fail("$.fit.weight", "must not be negative");
+        }
+        scene.fit = settings;
+    }
     return scene;
 }
 
@@ -539,6 +580,23 @@ nlohmann::json scene_to_json(const Scene& scene) {
             budgets[key] = value;
         }
     }
+    if (!scene.targets.empty()) {
+        nlohmann::json targets = nlohmann::json::array();
+        for (const SceneTarget& t : scene.targets) {
+            nlohmann::json target = {{"id", t.id}, {"file", t.file}};
+            if (t.spacing != kDefaultTargetSpacing) {
+                target["spacing_mm"] = t.spacing;
+            }
+            if (t.scale != 1.0) {
+                target["scale"] = t.scale;
+            }
+            targets.push_back(std::move(target));
+        }
+        out["targets"] = std::move(targets);
+    }
+    if (scene.fit.has_value()) {
+        out["fit"] = {{"target", scene.fit->target}, {"weight", scene.fit->weight}};
+    }
     if (!budgets.empty()) {
         out["budgets"] = std::move(budgets);
     }
@@ -562,15 +620,64 @@ Scene read_scene(const std::filesystem::path& path) {
     } catch (const nlohmann::json::parse_error& e) {
         throw std::invalid_argument(fmt::format("{}: {}", path.string(), e.what()));
     }
-    return scene_from_json(json);
+    Scene scene = scene_from_json(json);
+    load_targets(scene, std::filesystem::absolute(path).parent_path());
+    return scene;
+}
+
+void load_targets(Scene& scene, const std::filesystem::path& directory) {
+    // Targets are large and scenes are re-read after every edit; keep what
+    // was read, keyed by everything that decides the points.
+    struct Cached {
+        std::filesystem::file_time_type time;
+        double spacing;
+        double scale;
+        std::shared_ptr<const std::vector<Vec3>> points;
+    };
+
+    static std::map<std::string, Cached> cache;
+    for (SceneTarget& t : scene.targets) {
+        t.resolved = std::filesystem::absolute(directory / t.file).lexically_normal();
+        std::error_code missing;
+        const auto time = std::filesystem::last_write_time(t.resolved, missing);
+        if (missing) {
+            throw std::invalid_argument(
+                fmt::format("target '{}': cannot read {}", t.id, t.resolved.generic_string()));
+        }
+        const std::string key = t.resolved.generic_string();
+        const auto hit = cache.find(key);
+        if (hit != cache.end() && hit->second.time == time && hit->second.spacing == t.spacing &&
+            hit->second.scale == t.scale) {
+            t.points = hit->second.points;
+            continue;
+        }
+        std::vector<Vec3> points = sample_target(read_target_mesh(t.resolved), t.spacing / t.scale);
+        for (Vec3& p : points) {
+            p *= t.scale;
+        }
+        t.points = std::make_shared<const std::vector<Vec3>>(std::move(points));
+        cache[key] = {time, t.spacing, t.scale, t.points};
+    }
 }
 
 void write_scene(const Scene& scene, const std::filesystem::path& path) {
-    std::ofstream stream(path);
+    // Binary, so the file has LF line ends on every platform.
+    std::ofstream stream(path, std::ios::binary);
     if (!stream) {
         throw std::invalid_argument(fmt::format("cannot open {} for writing", path.string()));
     }
-    stream << scene_to_json(scene).dump(2) << '\n';
+    nlohmann::json json = scene_to_json(scene);
+    const std::filesystem::path folder = std::filesystem::absolute(path).parent_path();
+    for (std::size_t k = 0; k < scene.targets.size(); ++k) {
+        if (scene.targets[k].resolved.empty()) {
+            continue;
+        }
+        const std::filesystem::path relative =
+            std::filesystem::relative(scene.targets[k].resolved, folder);
+        json["targets"][k]["file"] =
+            (relative.empty() ? scene.targets[k].resolved : relative).generic_string();
+    }
+    stream << json.dump(2) << '\n';
 }
 
 } // namespace ada

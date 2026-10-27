@@ -29,6 +29,11 @@ struct Budgets {
     /// Mean curvature changing sign inside a patch (an S-bend).
     std::optional<bool> allow_curvature_reversal;
     std::optional<int> max_degree;
+    /// Fit to a target (L3): largest, RMS and 95th-percentile distance of the
+    /// target points from the surface, mm. Unset: not checked.
+    std::optional<double> fit_max_mm;
+    std::optional<double> fit_rms_mm;
+    std::optional<double> fit_p95_mm;
 };
 
 /// Defaults overridden by the keys present in `overrides` (same names as the

@@ -42,6 +42,12 @@ Budgets budgets_from_json(const nlohmann::json& overrides) {
                 budgets.allow_curvature_reversal = value.get<bool>();
             } else if (key == "max_degree") {
                 budgets.max_degree = value.get<int>();
+            } else if (key == "fit_max_mm") {
+                budgets.fit_max_mm = value.get<double>();
+            } else if (key == "fit_rms_mm") {
+                budgets.fit_rms_mm = value.get<double>();
+            } else if (key == "fit_p95_mm") {
+                budgets.fit_p95_mm = value.get<double>();
             } else {
                 throw std::invalid_argument(fmt::format("unknown budget '{}'", key));
             }
@@ -62,6 +68,9 @@ nlohmann::json to_json(const Budgets& budgets) {
         {"max_highlight_curvature_rate", optional_json(budgets.max_highlight_curvature_rate)},
         {"allow_curvature_reversal", optional_json(budgets.allow_curvature_reversal)},
         {"max_degree", optional_json(budgets.max_degree)},
+        {"fit_max_mm", optional_json(budgets.fit_max_mm)},
+        {"fit_rms_mm", optional_json(budgets.fit_rms_mm)},
+        {"fit_p95_mm", optional_json(budgets.fit_p95_mm)},
     };
 }
 

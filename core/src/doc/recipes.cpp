@@ -106,6 +106,73 @@ int blend_degree(const Blend& b) {
     return b.degree_across.value_or(2 * order_of(b.continuity) + 1);
 }
 
+/// The most solves a fit's parameter correction takes. Footpoints on a smooth
+/// patch settle in a handful; the cap only stops a fit that keeps hopping.
+constexpr std::size_t kMaxFitIterations = 25;
+
+/// Solves `problem` while its `fitted` patches follow the scene's target,
+/// correcting the target points' footpoints after each solve.
+SolveResult solve_fitted(const Scene& scene,
+                         SolveProblem problem,
+                         const std::vector<bool>& fitted,
+                         FitSummary& summary) {
+    const SceneTarget& target = scene.target(scene.fit->target);
+    if (!target.points) {
+        throw std::invalid_argument(fmt::format(
+            "fit target '{}' is not loaded: read the scene from its file so that {} can be found "
+            "next to it",
+            target.id,
+            target.file));
+    }
+    const std::vector<Vec3>& points = *target.points;
+    std::vector<std::size_t> which;
+    for (std::size_t k = 0; k < fitted.size(); ++k) {
+        if (fitted[k]) {
+            which.push_back(k);
+        }
+    }
+    auto subset = [&](const std::vector<BezierPatch>& patches) {
+        std::vector<BezierPatch> out;
+        for (const std::size_t k : which) {
+            out.push_back(patches[k]);
+        }
+        return out;
+    };
+
+    summary.active = true;
+    std::vector<FitAssignment> assignment = assign_points(subset(problem.patches), points);
+    SolveResult result;
+    for (std::size_t iteration = 1;; ++iteration) {
+        problem.fit = {{}, scene.fit->weight};
+        for (std::size_t k = 0; k < points.size(); ++k) {
+            const FitAssignment& a = assignment[k];
+            if (!a.outside) {
+                problem.fit.points.push_back({which[a.patch], a.u, a.v, points[k]});
+            }
+        }
+        result = solve(problem);
+        std::vector<FitAssignment> next =
+            assign_points(subset(result.patches), points, &assignment);
+        double change = 0.0;
+        for (std::size_t k = 0; k < points.size(); ++k) {
+            if (next[k].outside != assignment[k].outside || next[k].patch != assignment[k].patch) {
+                change = std::numeric_limits<double>::infinity();
+            } else if (!next[k].outside) {
+                change = std::max({change,
+                                   std::abs(next[k].u - assignment[k].u),
+                                   std::abs(next[k].v - assignment[k].v)});
+            }
+        }
+        assignment = std::move(next);
+        summary.iterations = iteration;
+        if (change <= tol::kFitParameterChange || iteration == kMaxFitIterations) {
+            break;
+        }
+    }
+    summary.stats = fit_stats(assignment);
+    return result;
+}
+
 } // namespace
 
 Boundaries
@@ -420,7 +487,13 @@ SceneSolveSummary solve_scene(Scene& scene) {
             hold(b.vmax, Edge::VMax, "VMax");
         }
 
-        const SolveResult result = solve(stage1);
+        std::vector<bool> fitted;
+        for (const std::size_t k : scene_of) {
+            fitted.push_back(is_boundary(scene.patches[k]));
+        }
+        const SolveResult result = scene.fit.has_value()
+                                       ? solve_fitted(scene, stage1, fitted, summary.fit)
+                                       : solve(stage1);
         merge(summary, result);
         for (std::size_t k = 0; k < scene_of.size(); ++k) {
             ScenePatch& p = scene.patches[scene_of[k]];

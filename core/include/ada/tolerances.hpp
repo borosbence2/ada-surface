@@ -93,4 +93,14 @@ inline constexpr double kCurveTargetWeight = 1e4;
 /// made; how well linked edges then join is the quality report's business.
 inline constexpr double kEdgeContact = 1e-3;
 
+/// A target point is tried against a patch only if it lies within the
+/// patch's control-net box grown by this fraction of the model size (120 mm
+/// on a 1.2 m hood): generous, because a fit's first surface can be far from
+/// the data, but enough to keep each point off most patches of a network.
+inline constexpr double kFitCandidateMargin = 0.1;
+
+/// A fit's parameter correction stops once no footpoint moves by more than
+/// this in (u, v) between two solves.
+inline constexpr double kFitParameterChange = 1e-7;
+
 } // namespace ada::tol

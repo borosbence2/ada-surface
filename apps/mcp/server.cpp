@@ -146,6 +146,7 @@ const Scene& SceneSession::current() {
     if (!scene_.has_value() || contents != contents_) {
         try {
             scene_ = scene_from_json(nlohmann::json::parse(contents));
+            load_targets(*scene_, file.parent_path());
         } catch (const std::exception& e) {
             scene_.reset();
             contents_.clear();

@@ -4,6 +4,7 @@
 // the links recipes imply.
 
 #include "ada/doc/scene.hpp"
+#include "ada/fit/fit.hpp"
 #include "ada/solve/solver.hpp"
 
 #include <array>
@@ -46,6 +47,13 @@ struct CurveDeviation {
     double max_mm = 0.0; ///< Largest control-point distance, an upper bound on the curve's.
 };
 
+/// How a fit to the scene's target went.
+struct FitSummary {
+    bool active = false;
+    std::size_t iterations = 0; ///< solves the parameter correction took
+    FitStats stats;             ///< the final surface against the target
+};
+
 struct SceneSolveSummary {
     std::size_t stages = 0;
     std::size_t unknowns = 0;
@@ -54,6 +62,7 @@ struct SceneSolveSummary {
     std::vector<ConstraintResidual> residuals;
     /// Every curve used by a from_boundaries patch, in scene order.
     std::vector<CurveDeviation> curves;
+    FitSummary fit;
 };
 
 /// Solves every recipe patch and stores the result (`solved = true`).
@@ -69,6 +78,13 @@ struct SceneSolveSummary {
 /// and G2 across the joint needs them to be, so there the curve control points
 /// become strong soft targets (`tol::kCurveTargetWeight`) and give way exactly
 /// as much as continuity demands. `SceneSolveSummary::curves` says how much.
+///
+/// With `scene.fit`, stage 1 also follows the target: each target point is
+/// assigned to the from_boundaries patch it lies over, at its footpoint, the
+/// stage is solved with the fit term, the points are projected again onto the
+/// result, and this repeats until no footpoint moves by more than
+/// `tol::kFitParameterChange` (parameter correction). Throws
+/// `std::invalid_argument` when the target is unknown or not loaded.
 ///
 /// Each blend is then solved in dependency order with its sources held fixed;
 /// its derivative scale on each side is chosen so the blend crosses the gap at

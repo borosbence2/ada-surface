@@ -20,6 +20,7 @@
 
 #include <array>
 #include <filesystem>
+#include <memory>
 #include <optional>
 #include <string>
 #include <variant>
@@ -104,6 +105,36 @@ struct SurfacePin {
     Vec3 at = Vec3::Zero();
 };
 
+/// Sample spacing on mesh targets, mm: dense enough to show a 0.5 mm
+/// deviation on a body panel, sparse enough to keep a hood to about 10^4
+/// points.
+inline constexpr double kDefaultTargetSpacing = 10.0;
+
+/// Weight of the fit relative to the normalised fairness (see `FitTerm`): the
+/// data leads, and the fairness only steadies what the data leaves loose.
+inline constexpr double kDefaultFitWeight = 1000.0;
+
+/// A shape to fit to: a mesh or point cloud in a file next to the scene.
+struct SceneTarget {
+    std::string id;
+    /// As written in the scene: relative to the scene file's folder.
+    std::string file;
+    double spacing = kDefaultTargetSpacing; ///< mm between samples on a mesh
+    double scale = 1.0;                     ///< file units to millimetres
+    /// Filled by `load_targets`: the file's absolute path and the points.
+    std::filesystem::path resolved;
+    std::shared_ptr<const std::vector<Vec3>> points;
+};
+
+/// Fit the scene's from_boundaries patches to a target: their free control
+/// points follow the target's points (each assigned to the patch it lies
+/// over), with the fairness energy steadying the rest. Boundary curves stay
+/// as given, and blends are not fitted.
+struct FitSettings {
+    std::string target;
+    double weight = kDefaultFitWeight;
+};
+
 struct SolveSettings {
     FairnessOrder order = FairnessOrder::E3;
     double fairness = 1.0;
@@ -124,11 +155,14 @@ struct Scene {
     /// Light for the highlight analysis; the report uses
     /// `default_light_plane` over the scene's bounding box when absent.
     std::optional<LightPlane> light;
+    std::vector<SceneTarget> targets;
+    std::optional<FitSettings> fit;
 
     /// Throw `std::invalid_argument` naming the id if there is no such item.
     const ScenePatch& patch(const std::string& id) const;
     std::size_t patch_index(const std::string& id) const;
     const SceneCurve& curve(const std::string& id) const;
+    const SceneTarget& target(const std::string& id) const;
 };
 
 /// Parses and validates a scene (version 0 or 1): format tag, units "mm",
@@ -141,8 +175,17 @@ Scene scene_from_json(const nlohmann::json& json);
 /// Always writes version 1.
 nlohmann::json scene_to_json(const Scene& scene);
 
+/// Reads every target's file, relative to `directory` (the scene file's
+/// folder), into points. Files already read are kept, by path, time and
+/// sampling, so a scene re-read after each edit does not reload its target.
+/// Throws `std::invalid_argument` for a file that cannot be read.
+void load_targets(Scene& scene, const std::filesystem::path& directory);
+
+/// Parses the file and loads its targets.
 Scene read_scene(const std::filesystem::path& path);
 
+/// Target files are written relative to `path`'s folder, so a scene saved
+/// elsewhere still finds them.
 void write_scene(const Scene& scene, const std::filesystem::path& path);
 
 } // namespace ada

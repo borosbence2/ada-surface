@@ -84,8 +84,21 @@ nlohmann::json summary_json(const SceneSession& session, const Scene& scene) {
         symmetry.push_back(
             {{"edge", edge_name(link.edge)}, {"continuity", to_string(link.continuity)}});
     }
+    nlohmann::json targets = nlohmann::json::array();
+    for (const SceneTarget& t : scene.targets) {
+        targets.push_back({{"id", t.id},
+                           {"file", t.file},
+                           {"points", t.points ? t.points->size() : 0},
+                           {"spacing_mm", t.spacing}});
+    }
+    nlohmann::json fit = nullptr;
+    if (scene.fit.has_value()) {
+        fit = {{"target", scene.fit->target}, {"weight", scene.fit->weight}};
+    }
     return {{"path", session.path().generic_string()},
             {"description", scene.description},
+            {"targets", std::move(targets)},
+            {"fit", std::move(fit)},
             {"curves", std::move(curves)},
             {"patches", std::move(patches)},
             {"edges", std::move(edges)},
