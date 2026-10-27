@@ -18,6 +18,8 @@ Source repository: `github.com/borosbence2/nurbs2subd`
 | `src/nurbs/differential.cpp` | `core/src/nurbs/differential.cpp` | `dea5d2e` | M2 | none |
 | `src/nurbs/basis.cpp` | `core/src/nurbs/basis.cpp` | `dea5d2e` | M1 | none |
 | `src/nurbs/surface.cpp` | `core/src/nurbs/surface.cpp` | `dea5d2e` | M1 | none |
+| `include/n2s/nurbs/projection.hpp` | `core/include/n2s/nurbs/projection.hpp` | `dea5d2e` | M11 | `ProjectionOptions::start`: an optional warm start that skips the grid search |
+| `src/nurbs/projection.cpp` | `core/src/nurbs/projection.cpp` | `dea5d2e` | M11 | uses `ProjectionOptions::start` when set |
 | `tests/third_party/n2s/test_knot_vector.cpp` (repo root) | `tests/nurbs/test_knot_vector.cpp` | `dea5d2e` | M1 | none |
 | `tests/third_party/n2s/test_basis.cpp` (repo root) | `tests/nurbs/test_basis.cpp` | `dea5d2e` | M1 | none |
 
@@ -32,6 +34,10 @@ Upstream `tests/nurbs/test_differential.cpp` is not copied for the same reason.
 `tests/analysis/test_differential.cpp` covers `curvature_from_derivatives`
 with an analytic sphere and exact polynomial paraboloids.
 
-When a later milestone needs another file (expected: `projection` for M11),
-copy it from the current upstream commit, add a row above, and note any local
-change in the last column.
+Upstream `tests/nurbs/test_projection.cpp` is not copied either (it needs
+`analytic_nurbs`); `tests/geom/test_projection.cpp` projects onto ADA Bézier
+patches converted with `to_nurbs`, where points are built as footpoint plus a
+normal offset, so the answer is known.
+
+When a later milestone needs another file, copy it from the current upstream
+commit, add a row above, and note any local change in the last column.

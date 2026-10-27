@@ -7,10 +7,12 @@ add_library(ada_n2s STATIC
     include/n2s/nurbs/detail/binomial.hpp
     include/n2s/nurbs/differential.hpp
     include/n2s/nurbs/knot_vector.hpp
+    include/n2s/nurbs/projection.hpp
     include/n2s/nurbs/surface.hpp
     src/nurbs/basis.cpp
     src/nurbs/differential.cpp
     src/nurbs/knot_vector.cpp
+    src/nurbs/projection.cpp
     src/nurbs/surface.cpp)
 
 add_library(ada::n2s ALIAS ada_n2s)

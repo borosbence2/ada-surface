@@ -15,6 +15,7 @@ add_executable(ada_tests
     geom/test_bezier_patch.cpp
     geom/test_convert.cpp
     geom/test_patch_evaluator.cpp
+    geom/test_projection.cpp
     io/test_iges.cpp
     mcp/test_edit_tools.cpp
     mcp/test_server.cpp
