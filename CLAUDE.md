@@ -66,6 +66,7 @@ ctest --preset dev --output-on-failure
 ./build/dev/bin/ada bench cases                              # scorecard; exit 0 only if every case passes
 ./build/dev/bin/ada export cases/L2-hood-2x2-sym.ada.json --solve -o results/hood.igs
 .venv/Scripts/python scripts/occt_check.py                   # OpenCASCADE re-measures every case; exit 0 = agrees
+python agent/eval/run_eval.py                                # intent eval via claude -p (uses Claude Code usage)
 
 npm --prefix studio ci
 npm --prefix studio start          # needs a built kernel (build/release or build/dev)

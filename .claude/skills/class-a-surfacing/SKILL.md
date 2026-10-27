@@ -85,6 +85,13 @@ through the first and last point, and the result's `fit_mm` says how far it
 misses the others. Give points in order along the line, spread over its
 whole length.
 
+**Gentle crowns.** Parameters follow chord length, so a cubic through points
+sampled from a simple crown (a parabola) is close to it but not exactly it.
+On a nearly flat panel that difference can show up as a highlight
+inflection. If a gentle panel shows one, fit its crown curves at degree 2
+through three points before reaching for anything else (in the eval, four
+evenly spread points at degree 3 did not remove it; degree 2 did).
+
 **Corners must be shared exactly.** Curves that meet at a corner of a patch
 must have the identical end point. Compute each node once and reuse its
 coordinates; do not recompute or round them separately per curve.

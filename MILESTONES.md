@@ -221,6 +221,15 @@ be changed before the milestone that depends on it starts.
 - **D11 WebAssembly kernel** — an Emscripten build of `ada_core` for a no-install
   browser demo (GitHub Pages). *Deferred*: it adds a toolchain and nothing
   needs it before Phase 3. *Confirmed (deferred).*
+- **D12 Studio's agent host** — the Anthropic client SDK (`@anthropic-ai/sdk`)
+  in Studio's main process, driving the conversation over Studio's existing
+  MCP client and sidecar (its tool runner, or a hand-written streaming loop
+  where the UI needs more control), with the craft guide as instructions.
+  Not the Claude Agent SDK: that runs the Claude Code binary as a second
+  process, starts its own kernel, and brings file and shell tools that would
+  have to be switched off to keep "the agent never writes control points".
+  Checked against the current Anthropic docs, 2026-10-27. *Confirmed; the
+  package is added when M9 resumes.*
 
 ## 6. Milestones
 
@@ -303,10 +312,11 @@ be changed before the milestone that depends on it starts.
 #### M8 — Craft guide and selection bridge (route A, Claude Code)
 - [x] Craft guide as a Claude Code skill, `.claude/skills/class-a-surfacing/SKILL.md` (not `agent/`: Claude Code finds project skills only there, and it loads whenever Claude Code runs in the repo). Class-A workflow (inspect → change → solve → report → explain), ADA's conventions with a worked network layout, every quality check, what to try per failure and error code, degree versus split, fairest versus least change, and when to stop and ask.
 - [x] Selection bridge end to end: pick in Studio, then the agent refers to "this edge". *Seen working in the user's first session: "make this edge G1" → `get_selection` → `hood_0_1.VMax` → `edge_constrain`.*
-- Exit: a natural-language session in Claude Code, watched live in Studio, builds a symmetric G2 roof, and the agent explains the final report correctly. *Session judged by the user.*
+- Exit: a natural-language session in Claude Code, watched live in Studio, builds a symmetric G2 roof, and the agent explains the final report correctly. *Session judged by the user. Met 2026-10-26: "works well".*
 
 #### M9 — Studio chat (route B, in-app agent)
-- [ ] Choose the agent host by checking the current Anthropic docs at the time: Claude Agent SDK (TypeScript) versus the Messages API tool runner with an MCP client. Record the choice as D12.
+*Deferred (the user's call, 2026-10-27): the in-app chat needs Anthropic API billing, which the user does not want for now. Route A, Claude Code next to a live Studio, does the same job and works. M10 runs on route A meanwhile.*
+- [x] Choose the agent host by checking the current Anthropic docs at the time: Claude Agent SDK (TypeScript) versus the Messages API tool runner with an MCP client. Record the choice as D12. *Client SDK; see D12.*
 - [ ] Host the agent in Studio's main process, connected to the same sidecar; hide UI-only tools from it; load the craft guide (`.claude/skills/class-a-surfacing/SKILL.md`) as its instructions.
 - [ ] Chat panel: streaming replies, collapsed tool-call rows, rendered report summaries, the current selection attached to the message as a chip.
 - [ ] API key stored with Electron `safeStorage`; never in the repo, the scene file or logs.
@@ -314,9 +324,9 @@ be changed before the milestone that depends on it starts.
 - Exit: the M8 roof session works entirely inside Studio.
 
 #### M10 — Intent eval
-- [ ] 10–20 scripted intent tasks with success defined by the quality report (not by judging the transcript).
-- [ ] Runner on route A (`claude -p` with the ADA MCP server) first; route B once M9 lands. Save transcripts and scorecards.
-- Exit: baseline success rate recorded; regressions visible from one run to the next.
+- [x] 10–20 scripted intent tasks with success defined by the quality report (not by judging the transcript). *Twelve, in `agent/eval/tasks.json`, judged under each task's own budgets.*
+- [x] Runner on route A (`claude -p` with the ADA MCP server) first; route B once M9 lands. Save transcripts and scorecards. *`agent/eval/run_eval.py`.*
+- Exit: baseline success rate recorded; regressions visible from one run to the next. *Met: 12/12 on 2026-10-27 (`docs/intent-eval.md`, `agent/eval/baseline.json`); each scorecard lists the tasks that regressed or were fixed since the previous run.*
 
 ### Phase 3 — Fitting to targets (L3)
 
@@ -556,3 +566,19 @@ auto-update and code signing, cloud, multi-user.
   agent read a case file to learn the network layout and had no guidance on
   curves giving way at nodes (both are now in the guide, which reports the
   cases' own values for calibration: 0.6 mm hood, 1.5 mm 3 x 3 panel).
+- 2026-10-27 — D12 decided (client SDK); M9 deferred, because the user does not
+  want API billing. M10 done on route A. `agent/eval/run_eval.py` runs each of
+  12 tasks as `claude -p` in the repo: only the ada MCP server, no
+  shell or edit tools, project settings only, and one appended sentence
+  saying nobody will answer questions. It judges the scene left behind
+  under the task's budgets (`agent/eval/tasks.json`; starting scenes from
+  `make_setups.py`, solved before each session). Baseline: 12/12, Opus 5.5,
+  8.6 min. The first judgement failed fix-wavy on a check bug (it measured the
+  control net's box: the wiggly degree-5 net stood 50 mm above its surface,
+  the refitted bicubic's 26 mm); the
+  check now samples the surface, and `--rejudge` re-applies changed checks
+  to a finished run. From the transcripts: a gentle crown fitted as a cubic
+  through points of a parabola picks up a highlight inflection (chord-length
+  parameters); degree 2 through three points cures it. That is now in the
+  craft guide. 12/12 also means the tasks are too easy; harder ones are the
+  eval's next step.

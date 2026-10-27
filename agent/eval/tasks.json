@@ -1,0 +1,126 @@
+{
+  "note": "Intent eval tasks (M10). {scene} is the task's scene file and {dir} its folder. 'setup' is copied to {scene} before the run and the ada server starts with it open; 'selection' plays the part of a pick in ADA Studio. Success is decided by 'checks' on the resulting scene and its quality report, judged under the budgets given here (or the setup's), never the scene's own. See docs/intent-eval.md.",
+  "case_budgets": {
+    "panel": {"max_degree": 3, "allow_curvature_reversal": false, "max_highlight_inflections": 1}
+  },
+  "tasks": [
+    {
+      "id": "build-roof",
+      "prompt": "Create a new scene at {scene} with a car roof's centre panel as one patch: x from 0 to 1400 mm (front to rear), y from -650 to 650 mm, highest in the middle at about z = 1470 mm, about 20 mm lower at the front and rear ends of its centre line and about 55 mm lower along both side edges. It should be a clean bicubic.",
+      "checks": {
+        "quality": {"max_degree": 3, "allow_curvature_reversal": false, "max_highlight_inflections": 0},
+        "patches": {"count": 1},
+        "size": {"x": [1350, 1450], "y": [1250, 1350], "z": [40, 160]}
+      }
+    },
+    {
+      "id": "build-roof-half",
+      "prompt": "Create a new scene at {scene} with the same kind of roof centre panel (1400 mm long in x, 1300 mm wide, top near z = 1470 mm in the middle, about 20 mm lower at the front and rear and 55 mm lower at the sides), but model only the half with y >= 0 and make it mirror-symmetric at the centre plane with curvature continuity.",
+      "checks": {
+        "quality": {"max_degree": 3, "allow_curvature_reversal": false, "max_highlight_inflections": 0},
+        "patches": {"count": 1},
+        "range": {"y_min": [-1, 1], "y_max": [600, 700]},
+        "symmetry": {"min_count": 1, "at_least": "G1"}
+      }
+    },
+    {
+      "id": "build-hood",
+      "prompt": "Create a new scene at {scene} for a car hood about 1200 mm long and 1400 mm wide, symmetric at Y = 0. Build the right half as a 2 x 2 network of curves through points, G2 everywhere.",
+      "checks": {
+        "quality": {"allow_curvature_reversal": false},
+        "patches": {"count": 4},
+        "links": {"count": 4, "all": "G2"},
+        "symmetry": {"min_count": 2, "at_least": "G1"},
+        "size": {"x": [1100, 1300]},
+        "range": {"y_min": [-1, 1], "y_max": [650, 750]}
+      }
+    },
+    {
+      "id": "build-door",
+      "prompt": "Create a new scene at {scene} with a door's outer skin: about 1000 mm long in x and 600 mm high in z, bulging gently outwards in +y by about 25 mm, as a 3 x 3 network of patches with G2 on every internal joint.",
+      "checks": {
+        "quality": {"allow_curvature_reversal": false},
+        "patches": {"count": 9},
+        "links": {"count": 12, "all": "G2"},
+        "size": {"x": [900, 1100], "z": [500, 700]}
+      }
+    },
+    {
+      "id": "build-blend",
+      "prompt": "Create a new scene at {scene} with two panels, both running from x = 0 to 1200 mm: panel A on y 0..500 at about z = 800, panel B on y 700..1200 sitting 60 mm lower. Fill the gap between them with a blend that is G2 on both sides.",
+      "checks": {
+        "quality": {},
+        "patches": {"count": 3},
+        "blends": {"count": 1, "continuity": "G2"}
+      }
+    },
+    {
+      "id": "pick-g1",
+      "setup": "hood.ada.json",
+      "selection": {"patch": "hood_0_1", "edge": "VMax"},
+      "prompt": "Make this edge G1.",
+      "checks": {
+        "quality": {},
+        "link": {"edges": ["hood_0_1.VMax", "hood_1_1.VMin"], "continuity": "G1"},
+        "links": {"count": 4, "count_G2": 3}
+      }
+    },
+    {
+      "id": "pick-fix-kink",
+      "setup": "hood-joint-g1.ada.json",
+      "selection": {"patch": "hood_0_0", "edge": "VMax"},
+      "prompt": "The zebra stripes kink across this joint. Fix it.",
+      "checks": {
+        "quality": "panel",
+        "link": {"edges": ["hood_0_0.VMax", "hood_1_0.VMin"], "continuity": "G2"},
+        "links": {"count": 4, "all": "G2"}
+      }
+    },
+    {
+      "id": "make-symmetric",
+      "setup": "roof-half-nosym.ada.json",
+      "prompt": "This is the left half of a roof panel. Make it mirror-symmetric at the centre plane, with curvature continuity across it.",
+      "checks": {
+        "quality": {"max_degree": 3, "allow_curvature_reversal": false, "max_highlight_inflections": 0},
+        "symmetry": {"min_count": 1, "at_least": "G1"}
+      }
+    },
+    {
+      "id": "undo",
+      "setup": "hood.ada.json",
+      "prompt": "Set the joint between hood_0_0 and hood_0_1 to G1 and tell me what the quality report says about that joint. Then undo the change.",
+      "checks": {
+        "quality": "panel",
+        "links": {"count": 4, "all": "G2"}
+      }
+    },
+    {
+      "id": "export",
+      "setup": "hood.ada.json",
+      "prompt": "Export this hood as IGES to {dir}/hood.igs.",
+      "checks": {
+        "iges": {"file": "hood.igs", "entities": 4}
+      }
+    },
+    {
+      "id": "fix-wavy",
+      "setup": "roof-wavy.ada.json",
+      "prompt": "The reflections on this roof wobble along one side. Fix that, keeping the roof's size and crown.",
+      "checks": {
+        "quality": {"max_degree": 3, "allow_curvature_reversal": false, "max_highlight_inflections": 0},
+        "size_like_setup": {"tolerance_mm": 15}
+      }
+    },
+    {
+      "id": "lengthen-hood",
+      "setup": "hood.ada.json",
+      "prompt": "Make this hood 100 mm longer at the rear, so it runs to about x = 1300 mm, keeping it symmetric and G2 everywhere.",
+      "checks": {
+        "quality": "panel",
+        "range": {"x_min": [-5, 5], "x_max": [1280, 1320]},
+        "links": {"count": 4, "all": "G2"},
+        "symmetry": {"min_count": 2, "at_least": "G1"}
+      }
+    }
+  ]
+}

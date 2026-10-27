@@ -1,0 +1,446 @@
+{
+  "run": "20261027-183740",
+  "model": "claude-opus-5-5",
+  "claude": "2.1.311 (Claude Code)",
+  "ada": "ADA Surface 0.1.0 (0a999d6-dirty, dirty) Release GNU 14.2.0 sanitizers=OFF",
+  "tasks": [
+    {
+      "id": "build-roof",
+      "pass": true,
+      "checks": [
+        {
+          "check": "quality",
+          "pass": true,
+          "detail": "pass"
+        },
+        {
+          "check": "patches",
+          "pass": true,
+          "detail": "1 patches"
+        },
+        {
+          "check": "size",
+          "pass": true,
+          "detail": "x 1400 mm, y 1300 mm, z 75 mm"
+        }
+      ],
+      "calls": {
+        "Skill": 1,
+        "ToolSearch": 1,
+        "scene_new": 1,
+        "curve_from_points": 1,
+        "patch_from_boundaries": 1,
+        "quality_report": 1,
+        "scene_summary": 1
+      },
+      "tool_errors": 0,
+      "turns": 9,
+      "cost_usd": 0.2656651,
+      "exit": 0,
+      "timed_out": false,
+      "seconds": 40.53099999995902
+    },
+    {
+      "id": "build-roof-half",
+      "pass": true,
+      "checks": [
+        {
+          "check": "quality",
+          "pass": true,
+          "detail": "pass"
+        },
+        {
+          "check": "patches",
+          "pass": true,
+          "detail": "1 patches"
+        },
+        {
+          "check": "range",
+          "pass": true,
+          "detail": "y_min 0.0, y_max 650.0"
+        },
+        {
+          "check": "symmetry",
+          "pass": true,
+          "detail": "roof.UMin G2"
+        }
+      ],
+      "calls": {
+        "Skill": 1,
+        "Glob": 1,
+        "Read": 1,
+        "ToolSearch": 2,
+        "scene_new": 1,
+        "curve_from_points": 3,
+        "patch_from_boundaries": 1,
+        "symmetry_constrain": 1,
+        "quality_report": 3,
+        "Grep": 3,
+        "scene_open": 2,
+        "fairness_set": 1,
+        "undo": 1
+      },
+      "tool_errors": 0,
+      "turns": 23,
+      "cost_usd": 0.6233279,
+      "exit": 0,
+      "timed_out": false,
+      "seconds": 150.6720000000205
+    },
+    {
+      "id": "build-hood",
+      "pass": true,
+      "checks": [
+        {
+          "check": "quality",
+          "pass": true,
+          "detail": "pass"
+        },
+        {
+          "check": "patches",
+          "pass": true,
+          "detail": "4 patches"
+        },
+        {
+          "check": "size",
+          "pass": true,
+          "detail": "x 1200 mm"
+        },
+        {
+          "check": "range",
+          "pass": true,
+          "detail": "y_min -0.0, y_max 700.0"
+        },
+        {
+          "check": "links",
+          "pass": true,
+          "detail": "hood_0_0.UMax ~ hood_0_1.UMin G2, hood_0_0.VMax ~ hood_1_0.VMin G2, hood_0_1.VMax ~ hood_1_1.VMin G2, hood_1_0.UMax ~ hood_1_1.UMin G2"
+        },
+        {
+          "check": "symmetry",
+          "pass": true,
+          "detail": "hood_0_0.UMin G2, hood_1_0.UMin G2"
+        }
+      ],
+      "calls": {
+        "Skill": 1,
+        "ToolSearch": 1,
+        "scene_new": 1,
+        "curve_from_points": 1,
+        "network_from_curves": 1,
+        "symmetry_constrain": 2,
+        "quality_report": 1
+      },
+      "tool_errors": 0,
+      "turns": 10,
+      "cost_usd": 0.334724,
+      "exit": 0,
+      "timed_out": false,
+      "seconds": 44.39099999994505
+    },
+    {
+      "id": "build-door",
+      "pass": true,
+      "checks": [
+        {
+          "check": "quality",
+          "pass": true,
+          "detail": "pass"
+        },
+        {
+          "check": "patches",
+          "pass": true,
+          "detail": "9 patches"
+        },
+        {
+          "check": "size",
+          "pass": true,
+          "detail": "x 1000 mm, z 600 mm"
+        },
+        {
+          "check": "links",
+          "pass": true,
+          "detail": "door_0_0.UMax ~ door_0_1.UMin G2, door_0_0.VMax ~ door_1_0.VMin G2, door_0_1.UMax ~ door_0_2.UMin G2, door_0_1.VMax ~ door_1_1.VMin G2, door_0_2.VMax ~ door_1_2.VMin G2, door_1_0.UMax ~ door_1_1.UMin G2, door_1_0.VMax ~ door_2_0.VMin G2, door_1_1.UMax ~ door_1_2.UMin G2, door_1_1.VMax ~ door_2_1.VMin G2, door_1_2.VMax ~ door_2_2.VMin G2, door_2_0.UMax ~ door_2_1.UMin G2, door_2_1.UMax ~ door_2_2.UMin G2"
+        }
+      ],
+      "calls": {
+        "Skill": 1,
+        "ToolSearch": 1,
+        "scene_new": 1,
+        "curve_from_points": 1,
+        "network_from_curves": 1,
+        "quality_report": 1
+      },
+      "tool_errors": 0,
+      "turns": 8,
+      "cost_usd": 0.41228269999999995,
+      "exit": 0,
+      "timed_out": false,
+      "seconds": 63.71900000004098
+    },
+    {
+      "id": "build-blend",
+      "pass": true,
+      "checks": [
+        {
+          "check": "quality",
+          "pass": true,
+          "detail": "pass"
+        },
+        {
+          "check": "patches",
+          "pass": true,
+          "detail": "3 patches"
+        },
+        {
+          "check": "blends",
+          "pass": true,
+          "detail": "G2"
+        }
+      ],
+      "calls": {
+        "Skill": 1,
+        "ToolSearch": 1,
+        "scene_new": 1,
+        "curve_from_points": 1,
+        "patch_from_boundaries": 2,
+        "patch_blend": 1,
+        "quality_report": 1
+      },
+      "tool_errors": 0,
+      "turns": 10,
+      "cost_usd": 0.2473457,
+      "exit": 0,
+      "timed_out": false,
+      "seconds": 25.515999999945052
+    },
+    {
+      "id": "pick-g1",
+      "pass": true,
+      "checks": [
+        {
+          "check": "quality",
+          "pass": true,
+          "detail": "pass"
+        },
+        {
+          "check": "links",
+          "pass": true,
+          "detail": "hood_0_0.UMax ~ hood_0_1.UMin G2, hood_0_0.VMax ~ hood_1_0.VMin G2, hood_0_1.VMax ~ hood_1_1.VMin G1, hood_1_0.UMax ~ hood_1_1.UMin G2"
+        },
+        {
+          "check": "link",
+          "pass": true,
+          "detail": "hood_0_1.VMax ~ hood_1_1.VMin: G1"
+        }
+      ],
+      "calls": {
+        "Skill": 1,
+        "ToolSearch": 1,
+        "get_selection": 1,
+        "scene_summary": 1,
+        "edge_constrain": 1
+      },
+      "tool_errors": 0,
+      "turns": 7,
+      "cost_usd": 0.17604000000000003,
+      "exit": 0,
+      "timed_out": false,
+      "seconds": 16.608999999938533
+    },
+    {
+      "id": "pick-fix-kink",
+      "pass": true,
+      "checks": [
+        {
+          "check": "quality",
+          "pass": true,
+          "detail": "pass"
+        },
+        {
+          "check": "links",
+          "pass": true,
+          "detail": "hood_0_0.UMax ~ hood_0_1.UMin G2, hood_0_0.VMax ~ hood_1_0.VMin G2, hood_0_1.VMax ~ hood_1_1.VMin G2, hood_1_0.UMax ~ hood_1_1.UMin G2"
+        },
+        {
+          "check": "link",
+          "pass": true,
+          "detail": "hood_0_0.VMax ~ hood_1_0.VMin: G2"
+        }
+      ],
+      "calls": {
+        "Skill": 1,
+        "ToolSearch": 1,
+        "scene_open": 1,
+        "get_selection": 1,
+        "edge_constrain": 1,
+        "quality_report": 1
+      },
+      "tool_errors": 0,
+      "turns": 8,
+      "cost_usd": 0.21572580000000002,
+      "exit": 0,
+      "timed_out": false,
+      "seconds": 21.64000000001397
+    },
+    {
+      "id": "make-symmetric",
+      "pass": true,
+      "checks": [
+        {
+          "check": "quality",
+          "pass": true,
+          "detail": "pass"
+        },
+        {
+          "check": "symmetry",
+          "pass": true,
+          "detail": "roof.UMin G2"
+        }
+      ],
+      "calls": {
+        "Skill": 1,
+        "ToolSearch": 2,
+        "scene_open": 1,
+        "quality_report": 2,
+        "get_selection": 1,
+        "symmetry_constrain": 1
+      },
+      "tool_errors": 1,
+      "turns": 10,
+      "cost_usd": 0.2012383,
+      "exit": 0,
+      "timed_out": false,
+      "seconds": 22.15700000000652
+    },
+    {
+      "id": "undo",
+      "pass": true,
+      "checks": [
+        {
+          "check": "quality",
+          "pass": true,
+          "detail": "pass"
+        },
+        {
+          "check": "links",
+          "pass": true,
+          "detail": "hood_0_0.UMax ~ hood_0_1.UMin G2, hood_0_0.VMax ~ hood_1_0.VMin G2, hood_0_1.VMax ~ hood_1_1.VMin G2, hood_1_0.UMax ~ hood_1_1.UMin G2"
+        }
+      ],
+      "calls": {
+        "Skill": 1,
+        "ToolSearch": 1,
+        "scene_summary": 1,
+        "edge_constrain": 1,
+        "quality_report": 1,
+        "undo": 1
+      },
+      "tool_errors": 0,
+      "turns": 8,
+      "cost_usd": 0.21719839999999996,
+      "exit": 0,
+      "timed_out": false,
+      "seconds": 14.937000000034459
+    },
+    {
+      "id": "export",
+      "pass": true,
+      "checks": [
+        {
+          "check": "iges",
+          "pass": true,
+          "detail": "4 entities 128, wanted 4"
+        }
+      ],
+      "calls": {
+        "ToolSearch": 1,
+        "Skill": 1,
+        "scene_open": 1,
+        "quality_report": 1,
+        "export_iges": 1,
+        "Glob": 1
+      },
+      "tool_errors": 0,
+      "turns": 8,
+      "cost_usd": 0.20464220000000002,
+      "exit": 0,
+      "timed_out": false,
+      "seconds": 14.265999999945052
+    },
+    {
+      "id": "fix-wavy",
+      "pass": true,
+      "checks": [
+        {
+          "check": "quality",
+          "pass": true,
+          "detail": "pass"
+        },
+        {
+          "check": "size_like_setup",
+          "pass": true,
+          "detail": "bounds moved up to 0.3 mm"
+        }
+      ],
+      "calls": {
+        "Skill": 2,
+        "ToolSearch": 1,
+        "scene_open": 1,
+        "quality_report": 2,
+        "Read": 1,
+        "curve_from_points": 1
+      },
+      "tool_errors": 0,
+      "turns": 11,
+      "cost_usd": 0.255691,
+      "exit": 0,
+      "timed_out": false,
+      "seconds": 31.03200000000652
+    },
+    {
+      "id": "lengthen-hood",
+      "pass": true,
+      "checks": [
+        {
+          "check": "quality",
+          "pass": true,
+          "detail": "pass"
+        },
+        {
+          "check": "range",
+          "pass": true,
+          "detail": "x_min -0.0, x_max 1300.0"
+        },
+        {
+          "check": "links",
+          "pass": true,
+          "detail": "hood_0_0.UMax ~ hood_0_1.UMin G2, hood_0_0.VMax ~ hood_1_0.VMin G2, hood_0_1.VMax ~ hood_1_1.VMin G2, hood_1_0.UMax ~ hood_1_1.UMin G2"
+        },
+        {
+          "check": "symmetry",
+          "pass": true,
+          "detail": "hood_0_0.UMin G2, hood_1_0.UMin G2"
+        }
+      ],
+      "calls": {
+        "Skill": 1,
+        "ToolSearch": 1,
+        "scene_open": 1,
+        "quality_report": 2,
+        "Grep": 2,
+        "Read": 1,
+        "curve_from_points": 2,
+        "undo": 1,
+        "scene_summary": 1
+      },
+      "tool_errors": 0,
+      "turns": 14,
+      "cost_usd": 0.48490079999999997,
+      "exit": 0,
+      "timed_out": false,
+      "seconds": 72.90599999995902
+    }
+  ],
+  "rejudged": "20261027-184711"
+}

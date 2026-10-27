@@ -5,13 +5,13 @@ curves, a target shape and plain language, and an agent builds it. A
 deterministic Bézier kernel holds the continuity, and every result comes with
 a quality report.
 
-> Status: M8. Scenes are written as curves through points plus recipes;
+> Status: M10. Scenes are written as curves through points plus recipes;
 > `ada solve` turns them into G2-continuous Bézier surfaces, `ada bench`
 > checks the case ladder against its budgets, and `ada export` writes IGES,
 > which OpenCASCADE measures again independently. An agent builds and edits
 > scenes through `ada-mcp`'s tools, guided by a Class-A craft guide, while
-> Studio shows the result live. The chat inside Studio comes next (M9). See
-> [MILESTONES.md](MILESTONES.md).
+> Studio shows the result live; an intent eval scores it (12/12 at baseline).
+> The chat inside Studio (M9) is on hold. See [MILESTONES.md](MILESTONES.md).
 
 ## Building
 
@@ -92,6 +92,10 @@ tools:
 No tool sets control points. Every edit solves the scene and writes the file;
 an edit that cannot be solved is refused with an error code, the reason and
 what to try, and leaves the file as it was.
+
+[docs/intent-eval.md](docs/intent-eval.md) is the agent's scorecard: twelve
+intent tasks run headless through Claude Code (`agent/eval/run_eval.py`),
+each judged by the scene and quality report it leaves behind.
 
 Claude Code started in this repository also loads the craft guide,
 [`.claude/skills/class-a-surfacing`](.claude/skills/class-a-surfacing/SKILL.md):
