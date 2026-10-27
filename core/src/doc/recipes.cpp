@@ -822,11 +822,13 @@ EconomyResult fit_economically(Scene& scene) {
             if (exhausted.count(id) > 0 || count[k] == 0) {
                 continue;
             }
-            const BezierPatch& current = scene.patch(id).patch;
+            // Copied, not referenced: raising u replaces the scene before v is read.
+            const int degree_u = scene.patch(id).patch.degree_u();
+            const int degree_v = scene.patch(id).patch.degree_v();
             std::string what;
             std::set<std::string> also;
             for (const bool along_v : {false, true}) {
-                const int degree = (along_v ? current.degree_v() : current.degree_u()) + 1;
+                const int degree = (along_v ? degree_v : degree_u) + 1;
                 if (degree > cap) {
                     continue;
                 }
