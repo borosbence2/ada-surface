@@ -128,10 +128,16 @@ input[type='number'] {
   display: block;
 }
 
-.legend {
+.legends {
   position: absolute;
   left: 12px;
   bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legend {
   width: 260px;
   padding: 8px 10px;
   background: rgba(30, 31, 34, 0.92);

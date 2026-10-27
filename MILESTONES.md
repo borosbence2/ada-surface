@@ -331,10 +331,10 @@ be changed before the milestone that depends on it starts.
 ### Phase 3 — Fitting to targets (L3)
 
 #### M11 — Target fitting
-- [ ] Read OBJ/STL/PLY targets; sample points; closest-point parameter correction (n2s projection).
-- [ ] Fit term in the solver; deviation colour map in Studio and in the report.
-- [ ] CV economy: start at a low degree and elevate (or split) until deviation is within budget.
-- Exit: synthetic targets (known Bézier + noise) are recovered within noise level at the original degree.
+- [x] Read OBJ/STL/PLY targets; sample points; closest-point parameter correction (n2s projection). *`io/target`, `fit/fit`; n2s `projection` copied with a warm-start option.*
+- [x] Fit term in the solver; deviation colour map in Studio and in the report. *Report: points, max/RMS/p95 against the budgets `fit_max_mm`, `fit_rms_mm`, `fit_p95_mm`. Studio: the target's points coloured by signed deviation, fixed range (the `fit_max_mm` budget by default), a "Fit to target" report section.*
+- [x] CV economy: start at a low degree and elevate (or split) until deviation is within budget. *Elevation only; splitting needs a layout change (R3). `ada solve --economy`, `fit_economically`.*
+- Exit: synthetic targets (known Bézier + noise) are recovered within noise level at the original degree. *Met: a degree-4 panel on cubic boundaries, sampled with 0.05 mm noise, comes back at degree 4 (economy starts at 3 and stops after one step), with RMS within 1.2x the noise and the surface within half the noise of the truth (`tests/fit/test_fit_scene.cpp`).*
 
 #### M12 — Hood from real data
 - [ ] Source the target: the Cranfield DrivAer CAD packs (CC BY 4.0) or the TUM DrivAer CAD (on request; check its terms). Synthetic fallback either way.
@@ -582,3 +582,27 @@ auto-update and code signing, cloud, multi-user.
   parameters); degree 2 through three points cures it. That is now in the
   craft guide. 12/12 also means the tasks are too easy; harder ones are the
   eval's next step.
+- 2026-10-27 — M11 done: target fitting. Scenes name targets (OBJ, STL, PLY;
+  sampled at the centroids of an even triangle subdivision; cached by path
+  and time) and a fit; from_boundaries patches then follow the target
+  through a fit term in the solver (normalised like move), with
+  point-distance parameter correction (n2s projection, warm-started). Design
+  findings: (1) a fit fixes the shape, not the parameterisation, so recovery
+  is measured geometrically (equal-(u, v) comparison showed 0.11 mm between
+  coincident surfaces); (2) point-distance correction converges linearly, so
+  it stops on footpoint motion in mm (points on a shared edge may switch
+  patches without moving) or when RMS improves by less than 0.1 %. Tangent-
+  or squared-distance minimisation would converge faster but couples the
+  solver's axes. (3) Assignment skips patches whose control-net box is
+  farther than the best footpoint: the example fit went from 171 s to 21 s
+  in Debug, 2 s in Release. CV economy raises the worst patch (by RMS) and
+  everything tied to it until the fit budgets hold; the degree logic moved
+  into the core (`set_degree`, `DegreeError`) and the MCP tool now uses it.
+  Studio's deviation map orients the sign along the axis the surface mostly
+  faces (patch normals may point either way; the hood's point down), so red
+  is above a hood or outboard of a right door. Example:
+  `cases/examples/hood-fit` (the L2 hood with a 3 mm bump in its scan):
+  degree 3 misses by 1.7 mm; economy reaches 0.47 mm max / 0.09 mm RMS at
+  up to 6x6, and the report then shows the price (highlight inflections,
+  zig-zags): following a bumped scan is not Class-A. Blends are not fitted
+  yet.

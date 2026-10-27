@@ -63,3 +63,21 @@ export function divergingCss(): string {
   });
   return `linear-gradient(to right, ${stops.join(', ')})`;
 }
+
+/** Target points beyond every patch: no deviation to colour. */
+export const kOutsideColor: Rgb = [0.55, 0.56, 0.58];
+
+/**
+ * RGB per point for signed deviations on the diverging map, full colour at
+ * +-`range` mm (red where the target lies on the normal's side), grey where the
+ * deviation is NaN.
+ */
+export function deviationColors(deviation: Float32Array, range: number): Float32Array {
+  const colors = new Float32Array(3 * deviation.length);
+  for (let k = 0; k < deviation.length; k++) {
+    const d = deviation[k]!;
+    const rgb = Number.isNaN(d) ? kOutsideColor : diverging(d / range);
+    colors.set(rgb, 3 * k);
+  }
+  return colors;
+}

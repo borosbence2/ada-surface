@@ -5,13 +5,15 @@ curves, a target shape and plain language, and an agent builds it. A
 deterministic Bézier kernel holds the continuity, and every result comes with
 a quality report.
 
-> Status: M10. Scenes are written as curves through points plus recipes;
+> Status: M11. Scenes are written as curves through points plus recipes;
 > `ada solve` turns them into G2-continuous Bézier surfaces, `ada bench`
 > checks the case ladder against its budgets, and `ada export` writes IGES,
 > which OpenCASCADE measures again independently. An agent builds and edits
 > scenes through `ada-mcp`'s tools, guided by a Class-A craft guide, while
 > Studio shows the result live; an intent eval scores it (12/12 at baseline).
-> The chat inside Studio (M9) is on hold. See [MILESTONES.md](MILESTONES.md).
+> Surfaces can be fitted to a scan or mesh with as few control points as the
+> tolerance allows (M11); a hood rebuilt from real data is next (M12). The
+> chat inside Studio (M9) is on hold. See [MILESTONES.md](MILESTONES.md).
 
 ## Building
 
@@ -30,6 +32,16 @@ Solve a scene and check it from the command line (exit code 0 pass, 1 fail,
 ./build/dev/bin/ada report results/hood.ada.json
 ./build/dev/bin/ada bench cases                        # every case against its budgets
 ./build/dev/bin/ada export results/hood.ada.json -o results/hood.igs
+```
+
+A scene can also follow a **target**, a scan or CAD mesh (OBJ, STL or PLY)
+next to it. Its from_boundaries patches then fit the target's points, the
+report gives their max / RMS / 95th-percentile distance against the fit
+budgets, and Studio colours the points by deviation. `--economy` starts at
+the curves' degrees and raises patches only as far as the budgets need:
+
+```
+./build/release/bin/ada solve cases/examples/hood-fit.ada.json --economy -o results/fit.ada.json
 ```
 
 [docs/occt-verification.md](docs/occt-verification.md) describes the

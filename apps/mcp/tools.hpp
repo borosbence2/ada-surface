@@ -46,4 +46,10 @@ ToolResult tessellate(SceneSession& session, const nlohmann::json& args);
 ToolResult cv_hulls(SceneSession& session);
 ToolResult boundary_combs(SceneSession& session, const nlohmann::json& args);
 
+/// The fit target's points (thinned to at most `max_points`) with each one's
+/// signed distance from the patches, NaN for points beyond them. Positive
+/// means towards the positive end of the axis the surface mostly faces
+/// (`positive_towards`): above a hood, outboard of a right-hand door.
+ToolResult fit_deviations(SceneSession& session, const nlohmann::json& args);
+
 } // namespace ada::mcp

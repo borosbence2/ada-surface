@@ -180,3 +180,39 @@ TEST_CASE("targets load from files next to the scene, and follow it when written
     written.close();
     std::filesystem::remove_all(root);
 }
+
+TEST_CASE("M11 exit: a known Bezier plus noise is recovered within the noise, at its own degree",
+          "[fit][scene][economy]") {
+    // The bumped panel is degree 4 on cubic boundaries. CV economy starts at
+    // the curves' degree 3 (any override is dropped), finds the residual
+    // above the budget, raises the patch to 4, and stops there.
+    Scene scene = fit_scene(samples(bumped_panel(), kNoiseMm), 9);
+    scene.budgets.fit_rms_mm = 1.2 * kNoiseMm;
+    const ada::EconomyResult result = ada::fit_economically(scene);
+    INFO(result.steps.size() << " steps");
+    CHECK(result.met);
+    REQUIRE(result.steps.size() == 1);
+    CHECK(scene.patches[0].patch.degree_u() == 4);
+    CHECK(scene.patches[0].patch.degree_v() == 4);
+    CHECK(result.last.fit.stats.rms_mm < 1.2 * kNoiseMm);
+    CHECK(distance_from_truth(scene.patches[0].patch, bumped_panel()) < 0.5 * kNoiseMm);
+}
+
+TEST_CASE("CV economy stops at the degree cap when the budget is out of reach",
+          "[fit][scene][economy]") {
+    // Asking for a tenth of the noise cannot be met at any degree; the
+    // budget's max_degree caps the climb.
+    Scene scene = fit_scene(samples(bumped_panel(), kNoiseMm), 3);
+    scene.budgets.fit_rms_mm = 0.1 * kNoiseMm;
+    scene.budgets.max_degree = 5;
+    const ada::EconomyResult result = ada::fit_economically(scene);
+    CHECK_FALSE(result.met);
+    CHECK(result.steps.size() == 2);
+    CHECK(scene.patches[0].patch.degree_u() == 5);
+
+    Scene no_budget = fit_scene(samples(bumped_panel(), 0.0), 3);
+    CHECK_THROWS_AS(ada::fit_economically(no_budget), std::invalid_argument);
+    no_budget.fit.reset();
+    no_budget.budgets.fit_rms_mm = 0.1;
+    CHECK_THROWS_AS(ada::fit_economically(no_budget), std::invalid_argument);
+}

@@ -307,113 +307,6 @@ ToolResult apply_edit(SceneSession& session, History& history, const Edit& edit)
 
 // --- Degrees -------------------------------------------------------------------
 
-/// One direction of one patch: its u degree (`along_v` false) or v degree.
-struct Axis {
-    std::string patch;
-    bool along_v;
-
-    bool operator==(const Axis&) const = default;
-};
-
-/// Every patch direction whose degree must equal `start`'s because linked
-/// edges join them (matched edges have equal degrees along them).
-std::vector<Axis> tied_axes(const Scene& scene, const Axis& start) {
-    const std::vector<EdgeLink> links = all_edge_links(scene);
-    std::vector<Axis> found{start};
-    std::deque<Axis> queue{start};
-    while (!queue.empty()) {
-        const Axis current = queue.front();
-        queue.pop_front();
-        for (const EdgeLink& link : links) {
-            for (const auto& [end, other] :
-                 {std::pair{link.a, link.b}, std::pair{link.b, link.a}}) {
-                if (end.patch != current.patch || runs_along_v(end.edge) != current.along_v) {
-                    continue;
-                }
-                const Axis next{other.patch, runs_along_v(other.edge)};
-                if (std::find(found.begin(), found.end(), next) == found.end()) {
-                    found.push_back(next);
-                    queue.push_back(next);
-                }
-            }
-        }
-    }
-    return found;
-}
-
-/// The degree a from_boundaries patch has without an override: its curves'.
-int curve_degree(const Scene& scene, const ScenePatch& p, bool along_v) {
-    FromBoundaries plain = std::get<FromBoundaries>(*p.recipe);
-    plain.degree_u.reset();
-    plain.degree_v.reset();
-    const Boundaries b = resolve_boundaries(scene, plain, p.id);
-    return along_v ? b.degree_v() : b.degree_u();
-}
-
-/// Sets one direction's degree on `axis` and on every direction tied to it.
-/// Returns the patches changed.
-std::vector<std::string> set_degree(Scene& scene, const Axis& axis, int degree) {
-    std::vector<std::string> changed;
-    for (const Axis& a : tied_axes(scene, axis)) {
-        ScenePatch& p = require_patch(scene, a.patch);
-        const char* name = a.along_v ? "degree_v" : "degree_u";
-        const int current = a.along_v ? p.patch.degree_v() : p.patch.degree_u();
-        if (!p.recipe.has_value()) {
-            if (current != degree) {
-                throw ToolError(
-                    fmt::format("patch '{}' has no recipe, so its {} stays {}; it is linked to "
-                                "'{}' along that direction",
-                                p.id,
-                                name,
-                                current,
-                                axis.patch),
-                    "fixed_patch",
-                    "a patch without a recipe is fixed geometry; remove the link that ties it "
-                    "(edge_constrain with continuity none) or leave the degree as it is");
-            }
-            continue;
-        }
-        if (auto* fb = std::get_if<FromBoundaries>(&*p.recipe)) {
-            const int floor = curve_degree(scene, p, a.along_v);
-            if (degree < floor) {
-                throw ToolError(
-                    fmt::format("patch '{}' cannot go below {} {}: its curves are degree {}",
-                                p.id,
-                                name,
-                                floor,
-                                floor),
-                    "degree_below_curves",
-                    "refit the boundary curves at a lower degree (curve_from_points with "
-                    "replace: true and a lower degree)");
-            }
-            (a.along_v ? fb->degree_v : fb->degree_u) =
-                degree == floor ? std::nullopt : std::optional<int>(degree);
-        } else {
-            auto& blend = std::get<Blend>(*p.recipe);
-            if (a.along_v) {
-                const int k = blend.continuity == Continuity::G0   ? 0
-                              : blend.continuity == Continuity::G1 ? 1
-                                                                   : 2;
-                if (degree < 2 * k + 1) {
-                    throw ToolError(
-                        fmt::format("blend '{}' needs degree {} across for {} on both sides",
-                                    p.id,
-                                    2 * k + 1,
-                                    to_string(blend.continuity)),
-                        "invalid_arguments");
-                }
-                blend.degree_across = degree;
-            }
-            // Along its edges a blend takes its sources' degree, which are
-            // tied to it and set in this same loop.
-        }
-        if (current != degree) {
-            changed.push_back(p.id);
-        }
-    }
-    return changed;
-}
-
 } // namespace
 
 // --- The tools -----------------------------------------------------------------
@@ -879,7 +772,28 @@ ToolResult patch_set_degree(SceneSession& session, History& history, const nlohm
             if (!degree.has_value()) {
                 continue;
             }
-            const std::vector<std::string> changed = set_degree(scene, {id, along_v}, *degree);
+            std::vector<std::string> changed;
+            try {
+                changed = set_degree(scene, id, along_v, *degree);
+            } catch (const DegreeError& e) {
+                switch (e.problem) {
+                case DegreeProblem::FixedPatch:
+                    throw ToolError(e.what(),
+                                    "fixed_patch",
+                                    "a patch without a recipe is fixed geometry; remove the link "
+                                    "that ties it (edge_constrain with continuity none) or leave "
+                                    "the degree as it is");
+                case DegreeProblem::BelowCurves:
+                    throw ToolError(
+                        e.what(),
+                        "degree_below_curves",
+                        "refit the boundary curves at a lower degree (curve_from_points "
+                        "with replace: true and a lower degree)");
+                case DegreeProblem::BlendTooLow:
+                    throw ToolError(e.what(), "invalid_arguments");
+                }
+                throw;
+            }
             const char* name = along_v ? "degree_v" : "degree_u";
             details[name] = {{"degree", *degree}, {"patches", changed}};
             text += fmt::format("{}{} {} on {}",

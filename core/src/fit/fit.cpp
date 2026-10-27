@@ -41,19 +41,39 @@ std::vector<FitAssignment> assign_points(const std::vector<BezierPatch>& patches
         boxes.emplace_back(lo - Vec3::Constant(margin), hi + Vec3::Constant(margin));
     }
 
+    // Distance from a point to a patch's control-net box (zero inside it): no
+    // point of the surface is closer, since the surface lies in the box.
+    auto box_distance = [&](const Vec3& point, std::size_t p) {
+        const Vec3 lo = boxes[p].first + Vec3::Constant(margin);
+        const Vec3 hi = boxes[p].second - Vec3::Constant(margin);
+        return (lo - point).cwiseMax(point - hi).cwiseMax(0.0).norm();
+    };
+
     std::vector<FitAssignment> out(points.size());
+    std::vector<std::pair<double, std::size_t>> candidates;
     for (std::size_t k = 0; k < points.size(); ++k) {
         const Vec3& point = points[k];
         const FitAssignment* before =
             previous != nullptr && k < previous->size() && !(*previous)[k].outside ? &(*previous)[k]
                                                                                    : nullptr;
+        candidates.clear();
+        for (std::size_t p = 0; p < patches.size(); ++p) {
+            const auto& [lo, hi] = boxes[p];
+            if ((point.array() >= lo.array()).all() && (point.array() <= hi.array()).all()) {
+                // The previous patch first: its warm start is cheap and its
+                // footpoint usually wins, which lets the others be skipped.
+                const bool first = before != nullptr && before->patch == p;
+                candidates.emplace_back(first ? -1.0 : box_distance(point, p), p);
+            }
+        }
+        std::sort(candidates.begin(), candidates.end());
+
         double best = std::numeric_limits<double>::infinity();
         n2s::SurfaceProjection found{};
         std::size_t found_patch = 0;
-        for (std::size_t p = 0; p < patches.size(); ++p) {
-            const auto& [lo, hi] = boxes[p];
-            if ((point.array() < lo.array()).any() || (point.array() > hi.array()).any()) {
-                continue;
+        for (const auto& [distance, p] : candidates) {
+            if (distance >= best) {
+                break; // this box, and every later one, is farther than the best footpoint
             }
             n2s::ProjectionOptions options;
             if (before != nullptr && before->patch == p) {
@@ -75,6 +95,7 @@ std::vector<FitAssignment> assign_points(const std::vector<BezierPatch>& patches
         a.patch = found_patch;
         a.u = found.u;
         a.v = found.v;
+        a.foot = found.point;
         const PatchDerivatives d = evaluators[found_patch].derivatives(found.u, found.v);
         const Vec3 offset = point - d.position();
         const std::optional<Vec3> normal = unit_normal(d);

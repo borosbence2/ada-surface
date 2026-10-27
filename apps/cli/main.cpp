@@ -52,9 +52,21 @@ int run_report(const std::filesystem::path& scene_path, const std::string& json_
     return report.pass ? kExitPass : kExitFail;
 }
 
-int run_solve(const std::filesystem::path& scene_path, const std::string& output) {
+int run_solve(const std::filesystem::path& scene_path, const std::string& output, bool economy) {
     ada::Scene scene = ada::read_scene(scene_path);
-    const ada::SceneSolveSummary summary = ada::solve_scene(scene);
+    ada::SceneSolveSummary summary;
+    if (economy) {
+        const ada::EconomyResult result = ada::fit_economically(scene);
+        for (const std::string& step : result.steps) {
+            fmt::print("{}\n", step);
+        }
+        fmt::print("CV economy: {}\n",
+                   result.met ? "the fit budgets are met"
+                              : "the fit budgets are out of reach at the degree cap");
+        summary = result.last;
+    } else {
+        summary = ada::solve_scene(scene);
+    }
     const std::filesystem::path target =
         output.empty() ? scene_path : std::filesystem::path(output);
     ada::write_scene(scene, target);
@@ -71,6 +83,9 @@ int run_solve(const std::filesystem::path& scene_path, const std::string& output
         if (c.max_mm > kReportedCurveDeviationMm) {
             fmt::print("curve {} moved up to {:.3f} mm for continuity\n", c.curve, c.max_mm);
         }
+    }
+    if (summary.fit.active) {
+        fmt::print("fit: {} parameter-correction solves\n", summary.fit.iterations);
     }
     const ada::QualityReport report = ada::compute_quality(scene);
     fmt::print("{}", ada::format_report(report));
@@ -131,6 +146,7 @@ int main(int argc, char** argv) {
 
     std::filesystem::path solve_path;
     std::string solve_output;
+    bool solve_economy = false;
     CLI::App* solve = app.add_subcommand(
         "solve", "Solve a scene's recipes, write the control points back, then report");
     solve->add_option("scene", solve_path, "Scene file (.ada.json)")
@@ -138,6 +154,10 @@ int main(int argc, char** argv) {
         ->check(CLI::ExistingFile);
     solve->add_option(
         "-o,--output", solve_output, "Write the solved scene here instead of in place");
+    solve->add_flag("--economy",
+                    solve_economy,
+                    "Fit with CV economy: start at the curves' degrees and raise patches until "
+                    "the fit budgets are met");
 
     std::filesystem::path bench_dir;
     std::string bench_json;
@@ -175,7 +195,7 @@ int main(int argc, char** argv) {
             return run_report(scene_path, json_path);
         }
         if (solve->parsed()) {
-            return run_solve(solve_path, solve_output);
+            return run_solve(solve_path, solve_output, solve_economy);
         }
         if (bench->parsed()) {
             return run_bench(bench_dir, bench_json, bench_markdown);

@@ -65,6 +65,7 @@ ctest --preset dev --output-on-failure
 ./build/dev/bin/ada solve cases/L2-hood-2x2-sym.ada.json -o results/hood.ada.json
 ./build/dev/bin/ada bench cases                              # scorecard; exit 0 only if every case passes
 ./build/dev/bin/ada export cases/L2-hood-2x2-sym.ada.json --solve -o results/hood.igs
+./build/release/bin/ada solve cases/examples/hood-fit.ada.json --economy -o results/fit.ada.json   # fit to a target, CV economy
 .venv/Scripts/python scripts/occt_check.py                   # OpenCASCADE re-measures every case; exit 0 = agrees
 python agent/eval/run_eval.py                                # intent eval via claude -p (uses Claude Code usage)
 

@@ -440,6 +440,15 @@ void McpServer::register_tools() {
              Kind::Ui,
              true,
              [this](const nlohmann::json&) { return cv_hulls(session_); });
+    add_tool("fit_deviations",
+             "Studio: the fit target's points with their signed distance from the patches.",
+             object_schema({{"max_points",
+                             {{"type", "integer"},
+                              {"minimum", 1},
+                              {"description", "Most points to return (default 60000)"}}}}),
+             Kind::Ui,
+             true,
+             [this](const nlohmann::json& args) { return fit_deviations(session_, args); });
     add_tool("boundary_combs",
              "Studio: curvature combs along every patch boundary.",
              object_schema({{"samples",

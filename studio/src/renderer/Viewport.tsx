@@ -3,11 +3,11 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 import type { SceneBundle, Selection } from '../shared/types';
-import type { DisplayOptions } from './display';
+import { deviationRange, kDefaultDeviationRangeMm, type DisplayOptions } from './display';
 import { framingDistance } from './framing';
 import { nearestEdge } from './picking';
 import { edgeStatuses } from './status';
-import { buildCombs, buildScene, type SceneObjects } from './viewport/sceneObjects';
+import { buildCombs, buildScene, recolorTarget, type SceneObjects } from './viewport/sceneObjects';
 import { kModeIndex } from './viewport/shaders';
 
 // Scene conventions match the kernel: millimetres, Z up, Y=0 is the vehicle
@@ -40,6 +40,8 @@ interface Stage {
   selection: THREE.Group;
   framedPath: string | null;
   combScale: number;
+  /** The range the target points are coloured for. */
+  deviationRange: number;
   render(): void;
 }
 
@@ -66,6 +68,9 @@ function applyOptions(stage: Stage, options: DisplayOptions): void {
   objects.hull.visible = options.showHull;
   objects.edges.visible = options.showEdges;
   objects.combs.visible = options.showCombs;
+  if (objects.target) {
+    objects.target.visible = options.showTarget;
+  }
 }
 
 export function Viewport({ bundle, options, selection, onPick, onRendered }: ViewportProps) {
@@ -111,6 +116,7 @@ export function Viewport({ bundle, options, selection, onPick, onRendered }: Vie
       selection: selectionGroup,
       framedPath: null,
       combScale: 1,
+      deviationRange: kDefaultDeviationRangeMm,
       render() {
         if (pending) return;
         pending = true;
@@ -203,9 +209,13 @@ export function Viewport({ bundle, options, selection, onPick, onRendered }: Vie
       stage.objects = null;
     }
     if (bundle) {
-      const objects = buildScene(bundle, edgeStatuses(bundle.report));
+      // Coloured for the budget's range; the options effect below recolours
+      // the points if the user has set another.
+      const range = bundle.deviations?.budgetMm ?? kDefaultDeviationRangeMm;
+      const objects = buildScene(bundle, edgeStatuses(bundle.report), range);
       stage.objects = objects;
       stage.combScale = 1;
+      stage.deviationRange = range;
       stage.scene.add(objects.root);
       if (stage.framedPath !== bundle.path) {
         frame(stage, objects.bounds);
@@ -237,6 +247,13 @@ export function Viewport({ bundle, options, selection, onPick, onRendered }: Vie
       objects.combs = buildCombs(bundle.combs, objects.bounds, options.combScale);
       objects.root.add(objects.combs);
       stage.combScale = options.combScale;
+    }
+    if (objects?.target && bundle?.deviations) {
+      const range = deviationRange(options, bundle.deviations.budgetMm);
+      if (range !== stage.deviationRange) {
+        recolorTarget(objects.target, bundle.deviations, range);
+        stage.deviationRange = range;
+      }
     }
     applyOptions(stage, options);
     stage.render();

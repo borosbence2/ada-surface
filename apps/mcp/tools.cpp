@@ -4,6 +4,7 @@
 #include "ada/analysis/quality.hpp"
 #include "ada/analysis/sampling.hpp"
 #include "ada/doc/recipes.hpp"
+#include "ada/fit/fit.hpp"
 #include "ada/geom/patch_evaluator.hpp"
 #include "ada/io/iges.hpp"
 
@@ -27,6 +28,10 @@ constexpr int kDefaultTessellationGrid = 49;
 constexpr int kMaxTessellationGrid = 257;
 constexpr int kDefaultCombSamples = 33;
 constexpr int kMaxCombSamples = 513;
+/// Points Studio draws for a fit target: enough to see a deviation pattern,
+/// few enough to send and draw after every edit.
+constexpr int kDefaultDeviationPoints = 60000;
+constexpr int kMaxDeviationPoints = 1000000;
 
 constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 
@@ -359,6 +364,75 @@ ToolResult boundary_combs(SceneSession& session, const nlohmann::json& args) {
                         scene.patches.size(),
                         samples),
             {{"patches", std::move(patches)}},
+            false};
+}
+
+ToolResult fit_deviations(SceneSession& session, const nlohmann::json& args) {
+    const int max_points =
+        integer_argument(args, "max_points", kDefaultDeviationPoints, 1, kMaxDeviationPoints);
+    const Scene& scene = session.current();
+    if (!scene.fit.has_value()) {
+        return {"the scene fits no target", {{"fit", nullptr}}, false};
+    }
+    const SceneTarget& target = scene.target(scene.fit->target);
+    if (!target.points) {
+        throw ToolError(fmt::format("target '{}' is not loaded", target.id), "target_not_loaded");
+    }
+    const std::vector<Vec3>& all = *target.points;
+    const std::size_t stride =
+        std::max<std::size_t>(1,
+                              (all.size() + static_cast<std::size_t>(max_points) - 1) /
+                                  static_cast<std::size_t>(max_points));
+    std::vector<Vec3> picked;
+    for (std::size_t k = 0; k < all.size(); k += stride) {
+        picked.push_back(all[k]);
+    }
+    std::vector<BezierPatch> patches;
+    for (const ScenePatch& p : scene.patches) {
+        patches.push_back(p.patch);
+    }
+    const std::vector<FitAssignment> assignment = assign_points(patches, picked);
+
+    // A patch's normal may point either way (this depends on how its curves
+    // run), so the sign is turned to a fixed meaning: positive towards the
+    // positive end of the axis the surface mostly faces. Above a hood or roof,
+    // outboard of a right-hand (y >= 0) door.
+    Vec3 facing = Vec3::Zero();
+    for (const BezierPatch& p : patches) {
+        if (const std::optional<Vec3> n = unit_normal(PatchEvaluator(p).derivatives(0.5, 0.5))) {
+            facing += n->cwiseAbs();
+        }
+    }
+    Eigen::Index axis = 2;
+    facing.maxCoeff(&axis);
+    std::vector<PatchEvaluator> evaluators(patches.begin(), patches.end());
+
+    std::vector<double> positions;
+    std::vector<double> deviation;
+    for (std::size_t k = 0; k < picked.size(); ++k) {
+        positions.insert(positions.end(), {picked[k].x(), picked[k].y(), picked[k].z()});
+        const FitAssignment& a = assignment[k];
+        if (a.outside) {
+            deviation.push_back(kNaN);
+            continue;
+        }
+        const std::optional<Vec3> n = unit_normal(evaluators[a.patch].derivatives(a.u, a.v));
+        const double sign = n.has_value() && (*n)(axis) < 0.0 ? -1.0 : 1.0;
+        deviation.push_back(sign * a.signed_distance);
+    }
+    nlohmann::json budget = nullptr;
+    if (scene.budgets.fit_max_mm.has_value()) {
+        budget = *scene.budgets.fit_max_mm;
+    }
+    return {fmt::format("{} of {} target points with their deviation", picked.size(), all.size()),
+            {{"fit",
+              {{"target", target.id},
+               {"total", all.size()},
+               {"count", picked.size()},
+               {"positions", encode_f32(positions)},
+               {"deviation", encode_f32(deviation)},
+               {"budget_mm", budget},
+               {"positive_towards", std::string("+") + "xyz"[axis]}}}},
             false};
 }
 

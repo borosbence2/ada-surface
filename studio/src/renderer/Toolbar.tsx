@@ -9,6 +9,8 @@ interface ToolbarProps {
   onSolve: () => void;
   /** Disabled while solving, or with no scene or kernel. */
   canSolve: boolean;
+  /** The scene fits a target, so its points can be shown. */
+  hasTarget: boolean;
   onExport: () => void;
 }
 
@@ -24,6 +26,7 @@ export function Toolbar({
   onSolve,
   canSolve,
   onExport,
+  hasTarget,
 }: ToolbarProps) {
   const set = (patch: Partial<DisplayOptions>) => onChange({ ...options, ...patch });
   return (
@@ -99,6 +102,16 @@ export function Toolbar({
         />
         combs
       </label>
+      {hasTarget && (
+        <label className="toolbar__check" title="The fit target's points, coloured by deviation">
+          <input
+            type="checkbox"
+            checked={options.showTarget}
+            onChange={(e) => set({ showTarget: e.target.checked })}
+          />
+          target
+        </label>
+      )}
       {options.showCombs && (
         <input
           type="range"

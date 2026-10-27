@@ -7,6 +7,8 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
+#include <deque>
 #include <limits>
 #include <map>
 #include <set>
@@ -140,6 +142,10 @@ SolveResult solve_fitted(const Scene& scene,
     };
 
     summary.active = true;
+    double size = 1.0;
+    for (const Vec3& p : points) {
+        size = std::max(size, p.cwiseAbs().maxCoeff());
+    }
     std::vector<FitAssignment> assignment = assign_points(subset(problem.patches), points);
     SolveResult result;
     for (std::size_t iteration = 1;; ++iteration) {
@@ -153,19 +159,20 @@ SolveResult solve_fitted(const Scene& scene,
         result = solve(problem);
         std::vector<FitAssignment> next =
             assign_points(subset(result.patches), points, &assignment);
-        double change = 0.0;
+        double moved = 0.0;
         for (std::size_t k = 0; k < points.size(); ++k) {
-            if (next[k].outside != assignment[k].outside || next[k].patch != assignment[k].patch) {
-                change = std::numeric_limits<double>::infinity();
+            if (next[k].outside != assignment[k].outside) {
+                moved = std::numeric_limits<double>::infinity();
             } else if (!next[k].outside) {
-                change = std::max({change,
-                                   std::abs(next[k].u - assignment[k].u),
-                                   std::abs(next[k].v - assignment[k].v)});
+                moved = std::max(moved, (next[k].foot - assignment[k].foot).norm());
             }
         }
+        const double before = fit_stats(assignment).rms_mm;
+        const double after = fit_stats(next).rms_mm;
         assignment = std::move(next);
         summary.iterations = iteration;
-        if (change <= tol::kFitParameterChange || iteration == kMaxFitIterations) {
+        if (moved <= tol::kFitFootpointMove * size ||
+            before - after <= tol::kFitRmsImprovement * after || iteration == kMaxFitIterations) {
             break;
         }
     }
@@ -633,6 +640,231 @@ SceneSolveSummary solve_scene(Scene& scene) {
     summary.milliseconds =
         std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
     return summary;
+}
+
+namespace {
+
+/// One direction of one patch: its u degree (`along_v` false) or v degree.
+struct Axis {
+    std::string patch;
+    bool along_v;
+
+    bool operator==(const Axis&) const = default;
+};
+
+/// UMin and UMax are lines of constant u, so they run along v.
+bool runs_along_v(Edge edge) {
+    return edge == Edge::UMin || edge == Edge::UMax;
+}
+
+/// Every patch direction whose degree must equal `start`'s because linked
+/// edges join them.
+std::vector<Axis> tied_axes(const Scene& scene, const Axis& start) {
+    const std::vector<EdgeLink> links = all_edge_links(scene);
+    std::vector<Axis> found{start};
+    std::deque<Axis> queue{start};
+    while (!queue.empty()) {
+        const Axis current = queue.front();
+        queue.pop_front();
+        for (const EdgeLink& link : links) {
+            for (const auto& [end, other] :
+                 {std::pair{link.a, link.b}, std::pair{link.b, link.a}}) {
+                if (end.patch != current.patch || runs_along_v(end.edge) != current.along_v) {
+                    continue;
+                }
+                const Axis next{other.patch, runs_along_v(other.edge)};
+                if (std::find(found.begin(), found.end(), next) == found.end()) {
+                    found.push_back(next);
+                    queue.push_back(next);
+                }
+            }
+        }
+    }
+    return found;
+}
+
+ScenePatch& patch_of(Scene& scene, const std::string& id) {
+    return scene.patches[scene.patch_index(id)];
+}
+
+bool fit_within(const FitStats& stats, const Budgets& b) {
+    return (!b.fit_max_mm.has_value() || stats.max_mm <= *b.fit_max_mm) &&
+           (!b.fit_rms_mm.has_value() || stats.rms_mm <= *b.fit_rms_mm) &&
+           (!b.fit_p95_mm.has_value() || stats.p95_mm <= *b.fit_p95_mm);
+}
+
+} // namespace
+
+int curve_degree(const Scene& scene, const ScenePatch& patch, bool along_v) {
+    FromBoundaries plain = std::get<FromBoundaries>(*patch.recipe);
+    plain.degree_u.reset();
+    plain.degree_v.reset();
+    const Boundaries b = resolve_boundaries(scene, plain, patch.id);
+    return along_v ? b.degree_v() : b.degree_u();
+}
+
+std::vector<std::string>
+set_degree(Scene& scene, const std::string& patch, bool along_v, int degree) {
+    static_cast<void>(scene.patch(patch));
+    std::vector<std::string> changed;
+    for (const Axis& a : tied_axes(scene, {patch, along_v})) {
+        ScenePatch& p = patch_of(scene, a.patch);
+        const char* name = a.along_v ? "degree_v" : "degree_u";
+        const int current = a.along_v ? p.patch.degree_v() : p.patch.degree_u();
+        if (!p.recipe.has_value()) {
+            if (current != degree) {
+                throw DegreeError(DegreeProblem::FixedPatch,
+                                  fmt::format("patch '{}' has no recipe, so its {} stays {}; it is "
+                                              "linked to '{}' along that direction",
+                                              p.id,
+                                              name,
+                                              current,
+                                              patch));
+            }
+            continue;
+        }
+        if (auto* fb = std::get_if<FromBoundaries>(&*p.recipe)) {
+            const int floor = curve_degree(scene, p, a.along_v);
+            if (degree < floor) {
+                throw DegreeError(DegreeProblem::BelowCurves,
+                                  fmt::format("patch '{}' cannot go below {} {}: its curves are "
+                                              "degree {}",
+                                              p.id,
+                                              name,
+                                              floor,
+                                              floor));
+            }
+            (a.along_v ? fb->degree_v : fb->degree_u) =
+                degree == floor ? std::nullopt : std::optional<int>(degree);
+        } else {
+            auto& blend = std::get<Blend>(*p.recipe);
+            if (a.along_v) {
+                const int k = order_of(blend.continuity);
+                if (degree < 2 * k + 1) {
+                    throw DegreeError(DegreeProblem::BlendTooLow,
+                                      fmt::format("blend '{}' needs degree {} across for {} on "
+                                                  "both sides",
+                                                  p.id,
+                                                  2 * k + 1,
+                                                  to_string(blend.continuity)));
+                }
+                blend.degree_across = degree;
+            }
+            // Along its edges a blend takes its sources' degree; they are tied
+            // to it and set in this same loop.
+        }
+        if (current != degree) {
+            changed.push_back(p.id);
+        }
+    }
+    return changed;
+}
+
+EconomyResult fit_economically(Scene& scene) {
+    if (!scene.fit.has_value()) {
+        throw std::invalid_argument("CV economy needs a fit: the scene has no target to follow");
+    }
+    const Budgets& b = scene.budgets;
+    if (!b.fit_max_mm.has_value() && !b.fit_rms_mm.has_value() && !b.fit_p95_mm.has_value()) {
+        throw std::invalid_argument(
+            "CV economy needs a fit budget (fit_max_mm, fit_rms_mm or fit_p95_mm) to aim for");
+    }
+    const int cap = std::min(b.max_degree.value_or(kMaxRecipeDegree), kMaxRecipeDegree);
+
+    std::vector<std::string> fitted;
+    for (ScenePatch& p : scene.patches) {
+        if (p.recipe.has_value()) {
+            if (auto* fb = std::get_if<FromBoundaries>(&*p.recipe)) {
+                fb->degree_u.reset();
+                fb->degree_v.reset();
+                fitted.push_back(p.id);
+            }
+        }
+    }
+
+    EconomyResult result;
+    std::set<std::string> exhausted;
+    while (true) {
+        result.last = solve_scene(scene);
+        if (fit_within(result.last.fit.stats, b)) {
+            result.met = true;
+            return result;
+        }
+        // RMS distance of each fitted patch's own target points.
+        std::vector<BezierPatch> patches;
+        for (const std::string& id : fitted) {
+            patches.push_back(scene.patch(id).patch);
+        }
+        const std::vector<FitAssignment> assignment =
+            assign_points(patches, *scene.target(scene.fit->target).points);
+        std::vector<double> sum(fitted.size(), 0.0);
+        std::vector<std::size_t> count(fitted.size(), 0);
+        for (const FitAssignment& a : assignment) {
+            if (!a.outside) {
+                sum[a.patch] += a.signed_distance * a.signed_distance;
+                ++count[a.patch];
+            }
+        }
+        std::vector<std::size_t> order(fitted.size());
+        for (std::size_t k = 0; k < order.size(); ++k) {
+            order[k] = k;
+        }
+        auto rms = [&](std::size_t k) {
+            return count[k] == 0 ? 0.0 : std::sqrt(sum[k] / static_cast<double>(count[k]));
+        };
+        std::sort(order.begin(), order.end(), [&](std::size_t x, std::size_t y) {
+            return rms(x) > rms(y);
+        });
+
+        bool raised = false;
+        for (const std::size_t k : order) {
+            const std::string& id = fitted[k];
+            if (exhausted.count(id) > 0 || count[k] == 0) {
+                continue;
+            }
+            const BezierPatch& current = scene.patch(id).patch;
+            std::string what;
+            std::set<std::string> also;
+            for (const bool along_v : {false, true}) {
+                const int degree = (along_v ? current.degree_v() : current.degree_u()) + 1;
+                if (degree > cap) {
+                    continue;
+                }
+                Scene attempt = scene;
+                try {
+                    for (const std::string& other : set_degree(attempt, id, along_v, degree)) {
+                        if (other != id) {
+                            also.insert(other);
+                        }
+                    }
+                } catch (const DegreeError&) {
+                    continue; // tied to a patch that cannot follow
+                }
+                scene = std::move(attempt);
+                what +=
+                    fmt::format("{}{} {}", what.empty() ? "" : ", ", along_v ? "v" : "u", degree);
+            }
+            if (what.empty()) {
+                exhausted.insert(id);
+                continue;
+            }
+            std::string tied;
+            for (const std::string& other : also) {
+                tied += (tied.empty() ? "" : ", ") + other;
+            }
+            result.steps.push_back(
+                fmt::format("raised '{}' to {} (its target points were {:.3f} mm RMS off){}",
+                            id,
+                            what,
+                            rms(k),
+                            tied.empty() ? std::string() : "; linked edges carried it to " + tied));
+            raised = true;
+            break;
+        }
+        if (!raised) {
+            return result; // every patch at the cap: the budgets are out of reach
+        }
+    }
 }
 
 std::vector<std::string> add_network(Scene& scene, const NetworkSpec& spec) {

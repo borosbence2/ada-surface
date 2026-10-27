@@ -100,7 +100,14 @@ inline constexpr double kEdgeContact = 1e-3;
 inline constexpr double kFitCandidateMargin = 0.1;
 
 /// A fit's parameter correction stops once no footpoint moves by more than
-/// this in (u, v) between two solves.
-inline constexpr double kFitParameterChange = 1e-7;
+/// this fraction of the model size between two solves (0.1 um on a 1.2 m
+/// hood). Measured in space, not in (u, v): a point on a shared edge may
+/// switch between the two patches without its footpoint moving.
+inline constexpr double kFitFootpointMove = 1e-7;
+
+/// ...or once a solve improves the RMS distance to the target by less than
+/// this fraction. Point-distance correction converges linearly, so the
+/// footpoints creep long after the fit has stopped getting visibly better.
+inline constexpr double kFitRmsImprovement = 1e-3;
 
 } // namespace ada::tol

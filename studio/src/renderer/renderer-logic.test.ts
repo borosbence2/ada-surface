@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Check, QualityReportJson } from '../shared/types';
-import { diverging, divergingCss, divergingGlsl, kDivergingStops } from './colormap';
+import {
+  deviationColors,
+  diverging,
+  divergingCss,
+  divergingGlsl,
+  kDivergingStops,
+  kOutsideColor,
+} from './colormap';
+import { deviationRange, kDefaultDisplay, kDefaultDeviationRangeMm } from './display';
 import { nearestEdge } from './picking';
 import { budgetUse, edgeStatuses, parseEdgeRef, statusOf } from './status';
 
@@ -111,5 +119,31 @@ describe('edge picking', () => {
   it('picks nothing in the interior', () => {
     expect(nearestEdge(0.5, 0.5)).toBeNull();
     expect(nearestEdge(0.2, 0.8)).toBeNull();
+  });
+});
+
+describe('target deviation colours', () => {
+  it('map +-range to the ends of the diverging map and NaN to grey', () => {
+    const colors = deviationColors(new Float32Array([0.5, -0.5, 0, Number.NaN, 7]), 0.5);
+    expect(Array.from(colors.slice(0, 3))).toEqual(
+      Array.from(kDivergingStops[4]![1]).map(Math.fround),
+    );
+    expect(Array.from(colors.slice(3, 6))).toEqual(
+      Array.from(kDivergingStops[0]![1]).map(Math.fround),
+    );
+    expect(Array.from(colors.slice(6, 9))).toEqual(
+      Array.from(kDivergingStops[2]![1]).map(Math.fround),
+    );
+    expect(Array.from(colors.slice(9, 12))).toEqual(Array.from(kOutsideColor).map(Math.fround));
+    // Beyond the range: clamped, like every colour map here.
+    expect(Array.from(colors.slice(12, 15))).toEqual(
+      Array.from(kDivergingStops[4]![1]).map(Math.fround),
+    );
+  });
+
+  it('use the user range, else the budget, else the default', () => {
+    expect(deviationRange(kDefaultDisplay, null)).toBe(kDefaultDeviationRangeMm);
+    expect(deviationRange(kDefaultDisplay, 0.5)).toBe(0.5);
+    expect(deviationRange({ ...kDefaultDisplay, deviationRangeMm: 2 }, 0.5)).toBe(2);
   });
 });

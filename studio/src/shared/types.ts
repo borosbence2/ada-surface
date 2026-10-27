@@ -98,11 +98,41 @@ export interface SymmetryReportJson {
   pass: boolean;
 }
 
+/** How far the scene's fit target is from its patches (L3). */
+export interface FitReportJson {
+  target: string;
+  loaded: boolean;
+  points: number;
+  outside: number;
+  max_mm: number;
+  rms_mm: number;
+  p95_mm: number;
+  checks: Check[];
+  pass: boolean;
+}
+
 export interface QualityReportJson {
   pass: boolean;
   patches: PatchReportJson[];
   edges: EdgeReportJson[];
   symmetry: SymmetryReportJson[];
+  /** Present when the scene fits a target. */
+  fit?: FitReportJson;
+}
+
+/** The fit target's points (thinned) and their signed distance from the patches. */
+export interface FitDeviations {
+  target: string;
+  /** Points in the whole target; `positions` may hold fewer. */
+  total: number;
+  /** xyz per point, mm. */
+  positions: Float32Array;
+  /** Signed distance per point, mm, positive towards `positiveTowards`; NaN beyond the patches. */
+  deviation: Float32Array;
+  /** "+z" for a hood or roof, "+y" for a right-hand door: the axis the surface mostly faces. */
+  positiveTowards: string;
+  /** The scene's `fit_max_mm` budget, the colour range unless the user sets one. */
+  budgetMm: number | null;
 }
 
 /** Everything the viewport needs for one scene, fetched from the kernel in one go. */
@@ -112,6 +142,8 @@ export interface SceneBundle {
   tessellation: Tessellation;
   hulls: CvHull[];
   combs: PatchCombs[];
+  /** Null when the scene fits no target. */
+  deviations: FitDeviations | null;
 }
 
 export type LoadResult = { ok: true; bundle: SceneBundle } | { ok: false; error: string };

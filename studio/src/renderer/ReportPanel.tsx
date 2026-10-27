@@ -32,6 +32,7 @@ export function ReportPanel({ report, selection }: ReportPanelProps) {
     ...report.patches.flatMap((p) => failed(p.id, p.checks)),
     ...report.edges.flatMap((e) => failed(`${e.a} ~ ${e.b}`, e.checks)),
     ...report.symmetry.flatMap((s) => failed(`${s.edge} (Y=0)`, s.checks)),
+    ...(report.fit ? failed(`fit to ${report.fit.target}`, report.fit.checks) : []),
   ];
 
   return (
@@ -126,6 +127,31 @@ export function ReportPanel({ report, selection }: ReportPanelProps) {
           </tbody>
         </table>
       </section>
+
+      {report.fit && (
+        <section>
+          <h3>Fit to target</h3>
+          <table>
+            <tbody>
+              <tr>
+                <td>
+                  <Dot status={statusOf(report.fit.checks)} />
+                </td>
+                <td className="report__mono">
+                  {report.fit.target}
+                  <div className="report__dim">
+                    {report.fit.loaded
+                      ? `${report.fit.points} points (${report.fit.outside} beyond the patches) · ` +
+                        `max ${report.fit.max_mm.toFixed(3)} mm · rms ${report.fit.rms_mm.toFixed(3)} mm · ` +
+                        `p95 ${report.fit.p95_mm.toFixed(3)} mm`
+                      : 'not loaded'}
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+      )}
 
       {failures.length > 0 && (
         <section>

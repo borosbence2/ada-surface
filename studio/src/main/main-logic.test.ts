@@ -2,7 +2,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { resolveViewMode } from '../shared/views';
-import { decodeF32, decodeTessellation, decodeU32 } from './decode';
+import { decodeDeviations, decodeF32, decodeTessellation, decodeU32 } from './decode';
 import { kernelCandidates, pickKernel } from './kernel-path';
 
 const f32 = (values: number[]) => Buffer.from(new Float32Array(values).buffer).toString('base64');
@@ -88,5 +88,43 @@ describe('--view names', () => {
   it('rejects anything else instead of falling back to a default', () => {
     expect(resolveViewMode('highlites')).toBeNull();
     expect(resolveViewMode('')).toBeNull();
+  });
+});
+
+describe('fit deviations', () => {
+  it('decode to typed arrays, or null without a fit', () => {
+    expect(decodeDeviations({ fit: null })).toBeNull();
+    const d = decodeDeviations({
+      fit: {
+        target: 'scan',
+        total: 4,
+        count: 2,
+        positions: f32([0, 0, 0, 1, 2, 3]),
+        deviation: f32([0.25, Number.NaN]),
+        budget_mm: 0.5,
+        positive_towards: '+z',
+      },
+    });
+    expect(d?.target).toBe('scan');
+    expect(d?.positions.length).toBe(6);
+    expect(d?.deviation[0]).toBe(0.25);
+    expect(Number.isNaN(d?.deviation[1])).toBe(true);
+    expect(d?.budgetMm).toBe(0.5);
+    expect(d?.positiveTowards).toBe('+z');
+  });
+
+  it('refuse a payload whose lengths disagree', () => {
+    expect(() =>
+      decodeDeviations({
+        fit: {
+          target: 's',
+          total: 3,
+          count: 3,
+          positions: f32([0, 0, 0]),
+          deviation: f32([0]),
+          budget_mm: null,
+        },
+      }),
+    ).toThrow();
   });
 });

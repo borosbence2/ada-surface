@@ -1,4 +1,4 @@
-import type { PatchMesh, Tessellation, LightJson } from '../shared/types';
+import type { FitDeviations, PatchMesh, Tessellation, LightJson } from '../shared/types';
 
 // ada-mcp sends bulk arrays as base64 of little-endian float32/uint32. Decoding
 // happens in the main process (Buffer is not available in the sandboxed
@@ -66,4 +66,39 @@ export function decodeTessellation(raw: unknown): Tessellation {
     return mesh;
   });
   return { grid: t.grid, light: t.light, patches };
+}
+
+interface RawDeviations {
+  fit: null | {
+    target: string;
+    total: number;
+    count: number;
+    positions: string;
+    deviation: string;
+    budget_mm: number | null;
+    positive_towards: string;
+  };
+}
+
+/** The `fit_deviations` tool's payload; null when the scene fits no target. */
+export function decodeDeviations(raw: unknown): FitDeviations | null {
+  const fit = (raw as RawDeviations).fit;
+  if (!fit) {
+    return null;
+  }
+  const positions = decodeF32(fit.positions);
+  const deviation = decodeF32(fit.deviation);
+  if (positions.length !== 3 * fit.count || deviation.length !== fit.count) {
+    throw new Error(
+      `fit deviations: expected ${fit.count} points, got ${positions.length / 3} positions and ${deviation.length} deviations`,
+    );
+  }
+  return {
+    target: fit.target,
+    total: fit.total,
+    positions,
+    deviation,
+    budgetMm: fit.budget_mm,
+    positiveTowards: fit.positive_towards,
+  };
 }

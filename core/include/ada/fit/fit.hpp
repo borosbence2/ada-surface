@@ -15,6 +15,7 @@ struct FitAssignment {
     std::size_t patch = 0; ///< index into the patches it was assigned among
     double u = 0.0;
     double v = 0.0;
+    Vec3 foot = Vec3::Zero(); ///< the footpoint S(u, v)
     /// Distance from the footpoint along the surface normal there, so the
     /// sign says which side the point is on (|signed_distance| = distance for
     /// a point inside the patch).
@@ -26,10 +27,12 @@ struct FitAssignment {
 
 /// The closest footpoint of each point over `patches`. Points are tested only
 /// against patches whose control-net box, grown by `tol::kFitCandidateMargin`
-/// of the model size, contains them. With `previous` (the assignment of the
+/// of the model size, contains them, nearest box first, and a patch whose box
+/// is farther away than the best footpoint so far is skipped (the surface
+/// lies inside its control net's box). With `previous` (the assignment of the
 /// same points onto earlier versions of the same patches), the previous
-/// footpoint seeds Newton on its patch instead of a grid search: this is the
-/// parameter correction step of a fit.
+/// patch goes first and its footpoint seeds Newton instead of a grid search:
+/// this is the parameter correction step of a fit.
 std::vector<FitAssignment> assign_points(const std::vector<BezierPatch>& patches,
                                          const std::vector<Vec3>& points,
                                          const std::vector<FitAssignment>* previous = nullptr);

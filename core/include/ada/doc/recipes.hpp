@@ -8,6 +8,7 @@
 #include "ada/solve/solver.hpp"
 
 #include <array>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -83,7 +84,7 @@ struct SceneSolveSummary {
 /// assigned to the from_boundaries patch it lies over, at its footpoint, the
 /// stage is solved with the fit term, the points are projected again onto the
 /// result, and this repeats until no footpoint moves by more than
-/// `tol::kFitParameterChange` (parameter correction). Throws
+/// `tol::kFitFootpointMove` of the model size (parameter correction). Throws
 /// `std::invalid_argument` when the target is unknown or not loaded.
 ///
 /// Each blend is then solved in dependency order with its sources held fixed;
@@ -94,6 +95,54 @@ struct SceneSolveSummary {
 /// `std::invalid_argument` for unusable recipes (curves that do not meet,
 /// blends whose sources form a cycle, pins on fixed patches).
 SceneSolveSummary solve_scene(Scene& scene);
+
+/// Why a degree cannot be set; `DegreeError` carries it so a caller can say
+/// what to do about it.
+enum class DegreeProblem {
+    FixedPatch,  ///< a patch without a recipe is tied in and has another degree
+    BelowCurves, ///< a from_boundaries patch cannot go below its curves' degree
+    BlendTooLow, ///< a blend needs 2k + 1 across for Gk
+};
+
+struct DegreeError : std::invalid_argument {
+    DegreeError(DegreeProblem reason, const std::string& message)
+        : std::invalid_argument(message),
+          problem(reason) {}
+
+    DegreeProblem problem;
+};
+
+/// A from_boundaries patch's degree in one direction (`along_v`: its v
+/// degree) without an override: its curves'.
+int curve_degree(const Scene& scene, const ScenePatch& patch, bool along_v);
+
+/// Sets a patch's degree in one direction, and the same on every patch
+/// direction tied to it by linked edges, since matched edges need equal
+/// degrees along them. A from_boundaries patch records it as a degree
+/// override (none when it equals its curves'); a blend takes it as its degree
+/// across, and along its edges follows its sources, which are tied to it; a
+/// patch without a recipe must already have it. Returns the patches whose
+/// degree changed. Throws `DegreeError`, and `std::invalid_argument` for an
+/// unknown patch.
+std::vector<std::string>
+set_degree(Scene& scene, const std::string& patch, bool along_v, int degree);
+
+/// What CV economy did.
+struct EconomyResult {
+    bool met = false; ///< the fit budgets pass
+    /// One line per raise: which patch went to which degrees, and why.
+    std::vector<std::string> steps;
+    SceneSolveSummary last; ///< the final solve
+};
+
+/// CV economy for a fit (L3: as few control points as meet the target):
+/// every from_boundaries patch starts at its curves' degree; while the fit
+/// budgets fail, the patch whose target points are farthest off (RMS) is
+/// raised by one degree in each direction (with every patch tied to it) and
+/// the scene is solved again, up to `budgets.max_degree` (or
+/// `kMaxRecipeDegree`). Throws `std::invalid_argument` for a scene without a
+/// fit or without a fit budget.
+EconomyResult fit_economically(Scene& scene);
 
 /// A grid of from_boundaries patches over shared curves, for cases like a
 /// hood or roof built from a curve network. Cell (r, c) is bounded by

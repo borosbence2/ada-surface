@@ -140,6 +140,7 @@ export function App() {
         onSolve={() => void solve()}
         onExport={() => void exportIges()}
         canSolve={bundle !== null && kernel.state === 'ready' && !solving}
+        hasTarget={bundle?.deviations != null}
       />
       <main className="workspace">
         <div className="stage">
@@ -150,7 +151,7 @@ export function App() {
             onPick={pick}
             onRendered={() => window.ada.sceneRendered()}
           />
-          <Legend options={options} onChange={setOptions} />
+          <Legend options={options} onChange={setOptions} deviations={bundle?.deviations ?? null} />
           {!bundle && kernel.state === 'ready' && !loading && (
             <div className="empty">
               <p>No scene open.</p>

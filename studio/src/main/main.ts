@@ -16,7 +16,7 @@ import type {
   Startup,
 } from '../shared/types';
 import { kViewModes, resolveViewMode } from '../shared/views';
-import { decodeTessellation } from './decode';
+import { decodeDeviations, decodeTessellation } from './decode';
 import { Kernel } from './kernel';
 import { kernelCandidates, pickKernel } from './kernel-path';
 import { SceneWatcher } from './scene-watcher';
@@ -139,11 +139,12 @@ async function load(file?: string): Promise<LoadResult> {
       watcher.watch(target);
       rememberScene(target);
     }
-    const [report, tessellation, hulls, combs] = await Promise.all([
+    const [report, tessellation, hulls, combs, deviations] = await Promise.all([
       k.call('quality_report'),
       k.call('tessellate', { grid: kTessellationGrid }),
       k.call('cv_hulls'),
       k.call('boundary_combs', { samples: kCombSamples }),
+      k.call('fit_deviations'),
     ]);
     return {
       ok: true,
@@ -153,6 +154,7 @@ async function load(file?: string): Promise<LoadResult> {
         tessellation: decodeTessellation(tessellation),
         hulls: (hulls as { patches: CvHull[] }).patches,
         combs: (combs as { patches: PatchCombs[] }).patches,
+        deviations: decodeDeviations(deviations),
       },
     };
   } catch (error) {

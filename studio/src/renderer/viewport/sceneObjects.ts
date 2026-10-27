@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 
-import type { EdgeName, PatchCombs, SceneBundle } from '../../shared/types';
+import type { EdgeName, FitDeviations, PatchCombs, SceneBundle } from '../../shared/types';
+import { deviationColors } from '../colormap';
 import { kStatusColors, edgeKey, type Status } from '../status';
 import { kSurfaceFragment, kSurfaceVertex } from './shaders';
 
@@ -18,6 +19,8 @@ export interface SceneObjects {
   hull: THREE.Group;
   combs: THREE.Group;
   edges: THREE.Group;
+  /** The fit target's points, coloured by deviation; null without a fit. */
+  target: THREE.Points | null;
   bounds: THREE.Sphere;
   /** Edge polylines by "patch.Edge", for highlighting a selection. */
   edgePoints: Map<string, THREE.Vector3[]>;
@@ -137,7 +140,41 @@ function buildEdges(
   return group;
 }
 
-export function buildScene(bundle: SceneBundle, statuses: Map<string, Status>): SceneObjects {
+/** Target points on screen, in pixels: visible over the surface without hiding it. */
+const kTargetPointPx = 3;
+
+/** The fit target's points as a point cloud, coloured for `range` mm. */
+export function buildTarget(deviations: FitDeviations, range: number): THREE.Points {
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(deviations.positions, 3));
+  geometry.setAttribute(
+    'color',
+    new THREE.BufferAttribute(deviationColors(deviations.deviation, range), 3),
+  );
+  const material = new THREE.PointsMaterial({
+    size: kTargetPointPx,
+    sizeAttenuation: false,
+    vertexColors: true,
+  });
+  return new THREE.Points(geometry, material);
+}
+
+/** Recolours target points for a new range, in place. */
+export function recolorTarget(
+  target: THREE.Points,
+  deviations: FitDeviations,
+  range: number,
+): void {
+  const color = target.geometry.getAttribute('color') as THREE.BufferAttribute;
+  (color.array as Float32Array).set(deviationColors(deviations.deviation, range));
+  color.needsUpdate = true;
+}
+
+export function buildScene(
+  bundle: SceneBundle,
+  statuses: Map<string, Status>,
+  deviationRange: number,
+): SceneObjects {
   const root = new THREE.Group();
   const material = surfaceMaterial(bundle.tessellation.light.spacing);
   const surfaces: THREE.Mesh[] = [];
@@ -170,6 +207,10 @@ export function buildScene(bundle: SceneBundle, statuses: Map<string, Status>): 
   const combs = buildCombs(bundle.combs, bounds, 1);
   const edges = buildEdges(bundle, statuses, edgePoints);
   root.add(hull, combs, edges);
+  const target = bundle.deviations ? buildTarget(bundle.deviations, deviationRange) : null;
+  if (target) {
+    root.add(target);
+  }
 
   return {
     root,
@@ -178,6 +219,7 @@ export function buildScene(bundle: SceneBundle, statuses: Map<string, Status>): 
     hull,
     combs,
     edges,
+    target,
     bounds,
     edgePoints,
     dispose() {

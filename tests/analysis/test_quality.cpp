@@ -1,13 +1,19 @@
 #include "ada/analysis/quality.hpp"
+#include "ada/doc/recipes.hpp"
 #include "ada/doc/scene.hpp"
+#include "ada/geom/patch_evaluator.hpp"
 
+#include "support/cases.hpp"
 #include "support/panels.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+#include <fmt/format.h>
 
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <random>
 #include <stdexcept>
 #include <string>
 
@@ -183,8 +189,71 @@ TEST_CASE("the committed example scenes match their generators", "[doc][examples
           ada::scene_to_json(hood_scene_g1_only()));
 }
 
+namespace {
+
+/// The fit example: the L2 hood case with a scan of its surface that has a
+/// 3 mm bump on the rear outer patch and 0.05 mm noise. At degree 3 the bump
+/// does not fit; CV economy raises the degrees until it does.
+void write_fit_example() {
+    const auto cases = ada::test::all_cases();
+    const auto hood = std::find_if(
+        cases.begin(), cases.end(), [](const auto& c) { return c.name == "L2-hood-2x2-sym"; });
+    REQUIRE(hood != cases.end());
+    Scene truth = hood->scene;
+    ada::solve_scene(truth);
+
+    std::mt19937 rng(20261027);
+    std::normal_distribution<double> noise(0.0, 0.05);
+    constexpr int kGrid = 41;
+    std::ofstream ply(examples_dir() / "hood-fit-scan.ply", std::ios::binary);
+    ply << "ply\nformat ascii 1.0\ncomment ADA fit example: the L2 hood, a 3 mm bump, 0.05 mm "
+           "noise\nelement vertex "
+        << truth.patches.size() * kGrid * kGrid
+        << "\nproperty double x\nproperty double y\nproperty double z\nend_header\n";
+    for (const ada::ScenePatch& p : truth.patches) {
+        const ada::PatchEvaluator e(p.patch);
+        for (int i = 0; i < kGrid; ++i) {
+            for (int j = 0; j < kGrid; ++j) {
+                ada::Vec3 x = e.evaluate(i / (kGrid - 1.0), j / (kGrid - 1.0));
+                const double dx = x.x() - 900.0;
+                const double dy = x.y() - 525.0;
+                x.z() += 3.0 * std::exp(-(dx * dx + dy * dy) / (2.0 * 80.0 * 80.0)) + noise(rng);
+                ply << fmt::format("{:.4f} {:.4f} {:.4f}\n", x.x(), x.y(), x.z());
+            }
+        }
+    }
+    ply.close();
+
+    Scene scene = hood->scene;
+    scene.description =
+        "Fit example: the L2 hood network fitted to a scan of it that carries a 3 mm bump on the "
+        "rear outer patch and 0.05 mm of noise. At degree 3 the bump does not fit (see the "
+        "deviation map in Studio); `ada solve --economy` raises the degrees until the fit budgets "
+        "hold.";
+    ada::SceneTarget target;
+    target.id = "scan";
+    target.file = "hood-fit-scan.ply";
+    scene.targets.push_back(target);
+    scene.fit = ada::FitSettings{"scan", ada::kDefaultFitWeight};
+    scene.budgets.fit_max_mm = 0.5;
+    scene.budgets.fit_rms_mm = 0.1;
+    scene.budgets.max_degree = 6;
+    ada::write_scene(scene, examples_dir() / "hood-fit.ada.json");
+}
+
+} // namespace
+
+TEST_CASE("the fit example loads its scan", "[analysis][quality][fit]") {
+    const Scene scene = ada::read_scene(examples_dir() / "hood-fit.ada.json");
+    REQUIRE(scene.fit.has_value());
+    REQUIRE(scene.targets.size() == 1);
+    REQUIRE(scene.targets[0].points != nullptr);
+    CHECK(scene.targets[0].points->size() == 4 * 41 * 41);
+}
+
 TEST_CASE("write the example scenes", "[.generate-examples]") {
     std::filesystem::create_directories(examples_dir());
+    write_fit_example();
     ada::write_scene(hood_scene(), examples_dir() / "hood.ada.json");
     ada::write_scene(hood_scene_g2_broken(), examples_dir() / "hood-g2-broken.ada.json");
     ada::write_scene(hood_scene_g1_only(), examples_dir() / "hood-g1-only.ada.json");

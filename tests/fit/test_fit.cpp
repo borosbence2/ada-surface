@@ -70,9 +70,9 @@ TEST_CASE("target points go to the patch they lie on, with their footpoint", "[f
 TEST_CASE("fit statistics: max, RMS and 95th percentile over the points inside", "[fit]") {
     std::vector<FitAssignment> a;
     for (int k = 1; k <= 20; ++k) {
-        a.push_back({0, 0.5, 0.5, static_cast<double>(k) / 10.0, false});
+        a.push_back({0, 0.5, 0.5, Vec3::Zero(), static_cast<double>(k) / 10.0, false});
     }
-    a.push_back({0, 1.0, 0.5, 99.0, true}); // outside: not counted
+    a.push_back({0, 1.0, 0.5, Vec3::Zero(), 99.0, true}); // outside: not counted
     const ada::FitStats s = ada::fit_stats(a);
     CHECK(s.points == 20);
     CHECK(s.outside == 1);

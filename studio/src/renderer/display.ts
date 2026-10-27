@@ -17,6 +17,21 @@ export interface DisplayOptions {
    */
   meanRadiusMm: number;
   gaussianRadiusMm: number;
+  /** Draw the fit target's points, coloured by deviation. */
+  showTarget: boolean;
+  /**
+   * Deviation that maps to full colour, mm; null takes the scene's
+   * `fit_max_mm` budget, or `kDefaultDeviationRangeMm` without one.
+   */
+  deviationRangeMm: number | null;
+}
+
+/** Colour range for target deviation when neither the user nor the scene sets one. */
+export const kDefaultDeviationRangeMm = 1;
+
+/** The deviation range in use: the user's, else the budget's, else the default. */
+export function deviationRange(options: DisplayOptions, budgetMm: number | null): number {
+  return options.deviationRangeMm ?? budgetMm ?? kDefaultDeviationRangeMm;
 }
 
 /** A radius of 2 m covers the body panels of a car without saturating. */
@@ -31,4 +46,6 @@ export const kDefaultDisplay: DisplayOptions = {
   stripes: 64,
   meanRadiusMm: kDefaultRangeRadiusMm,
   gaussianRadiusMm: kDefaultRangeRadiusMm,
+  showTarget: true,
+  deviationRangeMm: null,
 };
