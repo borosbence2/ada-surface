@@ -1,5 +1,6 @@
 #include "ada/solve/solver.hpp"
 
+#include "ada/geom/curve_fit.hpp"
 #include "ada/tolerances.hpp"
 
 #include <Eigen/Cholesky>
@@ -156,6 +157,47 @@ SolveResult solve(const SolveProblem& problem) {
 
     Eigen::MatrixXd energy = w.fairness * fairness(problem.patches, layout, w.order) +
                              (w.move + tol::kSolverTieBreak) * Eigen::MatrixXd::Identity(n, n);
+
+    // Fit: each point's |S(u, v) - target|^2 is a quadratic in its patch's
+    // control points, with the Bernstein products at (u, v) as coefficients.
+    Eigen::Matrix3Xd fit_pull = Eigen::Matrix3Xd::Zero(3, n);
+    if (!problem.fit.points.empty()) {
+        if (problem.fit.weight < 0.0) {
+            throw SolveError("the fit weight must be non-negative");
+        }
+        Eigen::MatrixXd fit = Eigen::MatrixXd::Zero(n, n);
+        for (const FitPoint& point : problem.fit.points) {
+            if (point.patch >= problem.patches.size() || !(point.u >= 0.0 && point.u <= 1.0) ||
+                !(point.v >= 0.0 && point.v <= 1.0)) {
+                throw SolveError(
+                    fmt::format("fit point at ({}, {}) on patch {} is outside the problem",
+                                point.u,
+                                point.v,
+                                point.patch));
+            }
+            const BezierPatch& patch = problem.patches[point.patch];
+            const std::vector<double> bu = bernstein_values(patch.degree_u(), point.u);
+            const std::vector<double> bv = bernstein_values(patch.degree_v(), point.v);
+            std::vector<std::pair<Eigen::Index, double>> terms;
+            for (std::size_t i = 0; i < bu.size(); ++i) {
+                for (std::size_t j = 0; j < bv.size(); ++j) {
+                    terms.emplace_back(layout.index(problem.patches, {point.patch, i, j}),
+                                       bu[i] * bv[j]);
+                }
+            }
+            for (const auto& [k, bk] : terms) {
+                for (const auto& [l, bl] : terms) {
+                    fit(k, l) += bk * bl;
+                }
+                fit_pull.col(k) += bk * point.target;
+            }
+        }
+        const double mean_diagonal = fit.diagonal().sum() / static_cast<double>(n);
+        if (mean_diagonal > 0.0) {
+            energy += (problem.fit.weight / mean_diagonal) * fit;
+            fit_pull *= problem.fit.weight / mean_diagonal;
+        }
+    }
     for (const SoftTarget& t : problem.targets) {
         if (t.weight < 0.0) {
             throw SolveError("soft target weights must be non-negative");
@@ -217,6 +259,7 @@ SolveResult solve(const SolveProblem& problem) {
         Eigen::VectorXd solution = particular;
         if (null_space.cols() > 0) {
             Eigen::VectorXd pull = (w.move + tol::kSolverTieBreak) * previous;
+            pull += fit_pull.row(axis).transpose();
             for (const SoftTarget& t : problem.targets) {
                 pull(layout.index(problem.patches, t.cv)) += t.weight * t.target(axis);
             }

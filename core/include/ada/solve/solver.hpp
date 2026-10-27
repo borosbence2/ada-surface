@@ -36,6 +36,25 @@ struct SoftTarget {
     double weight;
 };
 
+/// A point the surface of patch `patch` should pass near at (u, v): the
+/// squared distance `|S(u, v) - target|^2` joins the energy. (u, v) is the
+/// point's current footpoint on the patch; a fit re-projects and solves again.
+struct FitPoint {
+    std::size_t patch;
+    double u;
+    double v;
+    Vec3 target;
+};
+
+/// The fit term: its points, and its weight relative to the normalised
+/// fairness, like `move`. The term is normalised by its own mean diagonal, so
+/// `weight = 1` balances closeness to the data about evenly against fairness,
+/// and larger weights follow the data more closely.
+struct FitTerm {
+    std::vector<FitPoint> points;
+    double weight = 0.0;
+};
+
 struct SolveProblem {
     /// Current control points: the starting state, and what `move` pulls
     /// towards.
@@ -43,6 +62,7 @@ struct SolveProblem {
     Constraints constraints;
     SolveWeights weights;
     std::vector<SoftTarget> targets;
+    FitTerm fit;
 };
 
 struct ConstraintResidual {

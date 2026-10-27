@@ -98,7 +98,7 @@ TEST_CASE("E3 fairing rebuilds a total-degree-2 surface from its boundary", "[so
             scrambled.control_point(i, j) += Vec3(jitter(rng), jitter(rng), jitter(rng));
         }
     }
-    SolveProblem problem{{scrambled}, {}, {}, {}};
+    SolveProblem problem{{scrambled}, {}, {}, {}, {}};
     fix_boundary(problem.constraints, 0, scrambled);
     const SolveResult result = ada::solve(problem);
     CHECK(max_difference(result.patches[0], original) < kSameMm);
@@ -108,7 +108,7 @@ TEST_CASE("E3 fairing rebuilds a total-degree-2 surface from its boundary", "[so
 
 TEST_CASE("E2 fairing finds the lowest-energy interior", "[solve][solver]") {
     const BezierPatch original = dome();
-    SolveProblem problem{{original}, {}, {1.0, FairnessOrder::E2, 0.0}, {}};
+    SolveProblem problem{{original}, {}, {1.0, FairnessOrder::E2, 0.0}, {}, {}};
     fix_boundary(problem.constraints, 0, original);
     const SolveResult result = ada::solve(problem);
     const Eigen::MatrixXd f = ada::fairness_matrix(3, 3, FairnessOrder::E2);
@@ -141,7 +141,7 @@ TEST_CASE("with fairness off, full constraints rebuild the hand-built G2 neighbo
                 start.control_point(i, j) += Vec3(3.0, -2.0, 7.0);
             }
         }
-        SolveProblem problem{{a, start}, {}, {0.0, FairnessOrder::E3, 0.0}, {}};
+        SolveProblem problem{{a, start}, {}, {0.0, FairnessOrder::E3, 0.0}, {}, {}};
         fix_all(problem.constraints, 0, a, "A");
         ada::add_fixed_row(problem.constraints, 1, expected, Edge::VMax, 0, "B row 3");
         ada::add_edge_join(problem.constraints,
@@ -161,8 +161,11 @@ TEST_CASE("least-change repair undoes exactly the broken control point", "[solve
     // leave every other control point where it is.
     const ada::Scene broken = hood_scene_g2_broken();
     const ada::Scene good = hood_scene();
-    SolveProblem problem{
-        {broken.patches[0].patch, broken.patches[1].patch}, {}, {0.0, FairnessOrder::E3, 1.0}, {}};
+    SolveProblem problem{{broken.patches[0].patch, broken.patches[1].patch},
+                         {},
+                         {0.0, FairnessOrder::E3, 1.0},
+                         {},
+                         {}};
     fix_all(problem.constraints, 0, problem.patches[0], "front");
     ada::add_edge_join(problem.constraints,
                        problem.patches,
@@ -189,7 +192,7 @@ TEST_CASE("the move weight trades fairness against staying put", "[solve][solver
     const BezierPatch rear = scene.patches[1].patch.elevated_v(2);
     auto run = [&](double move) {
         SolveProblem problem{
-            {scene.patches[0].patch, rear}, {}, {1.0, FairnessOrder::E3, move}, {}};
+            {scene.patches[0].patch, rear}, {}, {1.0, FairnessOrder::E3, move}, {}, {}};
         fix_all(problem.constraints, 0, problem.patches[0], "front");
         ada::add_fixed_row(problem.constraints, 1, rear, Edge::VMax, 0, "rear far row");
         ada::add_edge_join(problem.constraints,
@@ -211,7 +214,7 @@ TEST_CASE("the symmetry constraint makes an edge mirror-G1", "[solve][solver]") 
     BezierPatch tilted = symmetric_panel();
     tilted.control_point(2, 1).z() += 4.0;
     tilted.control_point(1, 0).y() += 1.5;
-    SolveProblem problem{{tilted}, {}, {0.0, FairnessOrder::E3, 1.0}, {}};
+    SolveProblem problem{{tilted}, {}, {0.0, FairnessOrder::E3, 1.0}, {}, {}};
     ada::add_symmetry(problem.constraints, 0, tilted, Edge::VMin, Continuity::G2, "Y0");
     const SolveResult result = ada::solve(problem);
     const ada::SymmetryContinuity s =
@@ -223,7 +226,7 @@ TEST_CASE("the symmetry constraint makes an edge mirror-G1", "[solve][solver]") 
 TEST_CASE("contradicting constraints are reported by label", "[solve][solver]") {
     const BezierPatch a = domed_panel();
     BezierPatch b = g2_neighbour(a, 1.0, 0.0);
-    SolveProblem problem{{a, b}, {}, {}, {}};
+    SolveProblem problem{{a, b}, {}, {}, {}, {}};
     fix_all(problem.constraints, 0, a, "front fixed");
     // Hold B's boundary row 2 mm away from A's, then ask for G0 between them.
     for (std::size_t i = 0; i <= 3; ++i) {
@@ -315,7 +318,7 @@ TEST_CASE("a 3x3 network comes out G2 on every internal edge, fast", "[solve][so
         }
     }
 
-    SolveProblem problem{start, {}, {}, {}};
+    SolveProblem problem{start, {}, {}, {}, {}};
     for (std::size_t c = 0; c < 3; ++c) {
         ada::add_fixed_row(problem.constraints, c * 3 + 0, grid[c * 3 + 0], Edge::VMin, 0, "outer");
         ada::add_fixed_row(problem.constraints, c * 3 + 2, grid[c * 3 + 2], Edge::VMax, 0, "outer");
@@ -360,4 +363,90 @@ TEST_CASE("a 3x3 network comes out G2 on every internal edge, fast", "[solve][so
     // MILESTONES M4 exit: a 3x3 network solves in under 50 ms in release.
     CHECK(ms < 50.0);
 #endif
+}
+
+namespace {
+
+/// Points of `source` on a uniform (u, v) grid, as fit points for patch 0.
+std::vector<ada::FitPoint> fit_grid(const BezierPatch& source, std::size_t n) {
+    const PatchEvaluator evaluator(source);
+    std::vector<ada::FitPoint> points;
+    for (std::size_t i = 0; i < n; ++i) {
+        for (std::size_t j = 0; j < n; ++j) {
+            const double u = static_cast<double>(i) / static_cast<double>(n - 1);
+            const double v = static_cast<double>(j) / static_cast<double>(n - 1);
+            points.push_back({0, u, v, evaluator.evaluate(u, v)});
+        }
+    }
+    return points;
+}
+
+double fit_rms(const BezierPatch& patch, const std::vector<ada::FitPoint>& points) {
+    const PatchEvaluator evaluator(patch);
+    double sum = 0.0;
+    for (const ada::FitPoint& p : points) {
+        sum += (evaluator.evaluate(p.u, p.v) - p.target).squaredNorm();
+    }
+    return std::sqrt(sum / static_cast<double>(points.size()));
+}
+
+} // namespace
+
+TEST_CASE("fit points pull a patch onto the surface they were sampled from",
+          "[solve][solver][fit]") {
+    // Data from the domed panel, a flat start, and no fairness: least squares
+    // on exact data of the same degree recovers the panel.
+    const BezierPatch source = domed_panel();
+    std::vector<Vec3> flat = source.control_points();
+    for (Vec3& p : flat) {
+        p.z() = 0.0;
+    }
+    SolveProblem problem{{BezierPatch(3, 3, flat)}, {}, {0.0, FairnessOrder::E3, 0.0}, {}, {}};
+    problem.fit = {fit_grid(source, 9), 1.0};
+    const SolveResult result = ada::solve(problem);
+    CHECK(max_difference(result.patches[0], source) < 1e-6);
+}
+
+TEST_CASE("the fit weight trades closeness to the data against fairness", "[solve][solver][fit]") {
+    // A bump the fairness energy dislikes: the stronger the fit, the closer
+    // the result follows it.
+    const BezierPatch bumped = nudge(domed_panel(), 1, 2, 30.0);
+    const std::vector<ada::FitPoint> data = fit_grid(bumped, 9);
+    auto rms = [&](double weight) {
+        SolveProblem problem{{domed_panel()}, {}, {1.0, FairnessOrder::E3, 0.0}, {}, {}};
+        problem.fit = {data, weight};
+        return fit_rms(ada::solve(problem).patches[0], data);
+    };
+    const double loose = rms(1e-3);
+    const double medium = rms(1.0);
+    const double tight = rms(1e3);
+    CHECK(loose > medium);
+    CHECK(medium > tight);
+    CHECK(tight < 0.05);
+}
+
+TEST_CASE("constraints hold exactly against the fit", "[solve][solver][fit]") {
+    // The data wants the VMin row 10 mm higher than the constraint allows;
+    // the constraint wins exactly, the fit takes the rest.
+    const BezierPatch source = domed_panel();
+    std::vector<Vec3> lifted = source.control_points();
+    for (Vec3& p : lifted) {
+        p.z() += 10.0;
+    }
+    SolveProblem problem{{source}, {}, {0.0, FairnessOrder::E3, 0.0}, {}, {}};
+    problem.fit = {fit_grid(BezierPatch(3, 3, lifted), 9), 1.0};
+    ada::add_fixed_row(problem.constraints, 0, source, Edge::VMin, 0, "held row");
+    const SolveResult result = ada::solve(problem);
+    CHECK(result.max_residual < kResidualMm);
+    for (std::size_t i = 0; i <= 3; ++i) {
+        CHECK((result.patches[0].control_point(i, 0) - source.control_point(i, 0)).norm() <
+              kResidualMm);
+        CHECK(result.patches[0].control_point(i, 3).z() > source.control_point(i, 3).z() + 5.0);
+    }
+
+    SolveProblem bad{{source}, {}, {}, {}, {}};
+    bad.fit = {{{3, 0.5, 0.5, Vec3::Zero()}}, 1.0};
+    CHECK_THROWS_AS(ada::solve(bad), ada::SolveError);
+    bad.fit = {{{0, 1.5, 0.5, Vec3::Zero()}}, 1.0};
+    CHECK_THROWS_AS(ada::solve(bad), ada::SolveError);
 }
