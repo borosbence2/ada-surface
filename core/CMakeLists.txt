@@ -61,6 +61,7 @@ add_library(ada_core STATIC
     src/geom/polygon_ops.cpp
     src/geom/polygon_ops.hpp
     src/io/iges.cpp
+    src/io/target.cpp
     src/solve/constraints.cpp
     src/solve/fairness.cpp
     src/solve/solver.cpp

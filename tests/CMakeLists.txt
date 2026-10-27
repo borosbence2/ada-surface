@@ -17,6 +17,7 @@ add_executable(ada_tests
     geom/test_patch_evaluator.cpp
     geom/test_projection.cpp
     io/test_iges.cpp
+    io/test_target.cpp
     mcp/test_edit_tools.cpp
     mcp/test_server.cpp
     solve/test_fairness.cpp
