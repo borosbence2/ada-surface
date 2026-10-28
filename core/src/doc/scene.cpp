@@ -646,6 +646,7 @@ void load_targets(Scene& scene, const std::filesystem::path& directory) {
         double scale;
         TargetSample sample;
         std::shared_ptr<const std::vector<Vec3>> points;
+        std::shared_ptr<const TargetMesh> mesh;
     };
 
     static std::map<std::string, Cached> cache;
@@ -662,17 +663,17 @@ void load_targets(Scene& scene, const std::filesystem::path& directory) {
         if (hit != cache.end() && hit->second.time == time && hit->second.spacing == t.spacing &&
             hit->second.scale == t.scale && hit->second.sample == t.sample) {
             t.points = hit->second.points;
+            t.mesh = hit->second.mesh;
             continue;
         }
-        const TargetMesh mesh = read_target_mesh(t.resolved);
-        std::vector<Vec3> points = t.sample == TargetSample::Vertices
-                                       ? mesh.vertices
-                                       : sample_target(mesh, t.spacing / t.scale);
-        for (Vec3& p : points) {
-            p *= t.scale;
+        TargetMesh mesh = read_target_mesh(t.resolved);
+        for (Vec3& v : mesh.vertices) {
+            v *= t.scale;
         }
-        t.points = std::make_shared<const std::vector<Vec3>>(std::move(points));
-        cache[key] = {time, t.spacing, t.scale, t.sample, t.points};
+        t.points = std::make_shared<const std::vector<Vec3>>(
+            t.sample == TargetSample::Vertices ? mesh.vertices : sample_target(mesh, t.spacing));
+        t.mesh = std::make_shared<const TargetMesh>(std::move(mesh));
+        cache[key] = {time, t.spacing, t.scale, t.sample, t.points, t.mesh};
     }
 }
 

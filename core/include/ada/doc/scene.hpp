@@ -14,6 +14,7 @@
 #include "ada/geom/bezier_curve.hpp"
 #include "ada/geom/bezier_patch.hpp"
 #include "ada/geom/continuity.hpp"
+#include "ada/io/target.hpp"
 #include "ada/solve/fairness.hpp"
 
 #include <nlohmann/json.hpp>
@@ -132,9 +133,11 @@ struct SceneTarget {
     double spacing = kDefaultTargetSpacing; ///< mm between samples on a mesh
     double scale = 1.0;                     ///< file units to millimetres
     TargetSample sample = TargetSample::Surface;
-    /// Filled by `load_targets`: the file's absolute path and the points.
+    /// Filled by `load_targets`: the file's absolute path, the points a fit
+    /// uses and the mesh in millimetres (no triangles for a point cloud).
     std::filesystem::path resolved;
     std::shared_ptr<const std::vector<Vec3>> points;
+    std::shared_ptr<const TargetMesh> mesh;
 };
 
 /// Fit the scene's from_boundaries patches to a target: their free control

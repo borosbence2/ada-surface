@@ -13,6 +13,7 @@ add_executable(ada_tests
     doc/test_topology.cpp
     fit/test_fit.cpp
     fit/test_fit_scene.cpp
+    fit/test_layout.cpp
     geom/test_bezier_curve.cpp
     geom/test_bezier_patch.cpp
     geom/test_convert.cpp

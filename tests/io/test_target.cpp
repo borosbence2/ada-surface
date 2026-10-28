@@ -8,6 +8,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -176,4 +177,67 @@ TEST_CASE("sampling spreads points evenly over the triangles, without duplicates
     cloud.vertices = kSquare;
     CHECK(ada::sample_target(cloud, 10.0).size() == 4);
     CHECK_THROWS_AS(ada::sample_target(mesh, 0.0), std::invalid_argument);
+}
+
+namespace {
+
+/// A 2 x 2 grid of quads (as triangles) on the plane z = 0.1 x + 0.2 y, over
+/// [0, 100] x [0, 100]: nine shared vertices, an outline of eight.
+TargetMesh tilted_grid() {
+    TargetMesh mesh;
+    for (int j = 0; j <= 2; ++j) {
+        for (int i = 0; i <= 2; ++i) {
+            const double x = 50.0 * i;
+            const double y = 50.0 * j;
+            mesh.vertices.emplace_back(x, y, 0.1 * x + 0.2 * y);
+        }
+    }
+    auto at = [](int i, int j) { return static_cast<std::uint32_t>(3 * j + i); };
+    for (int j = 0; j < 2; ++j) {
+        for (int i = 0; i < 2; ++i) {
+            mesh.triangles.push_back({at(i, j), at(i + 1, j), at(i + 1, j + 1)});
+            mesh.triangles.push_back({at(i, j), at(i + 1, j + 1), at(i, j + 1)});
+        }
+    }
+    return mesh;
+}
+
+} // namespace
+
+TEST_CASE("a mesh's outline is its boundary loop, also with STL's repeated vertices",
+          "[io][target]") {
+    const TargetMesh mesh = tilted_grid();
+    const auto loops = ada::mesh_outline(mesh);
+    REQUIRE(loops.size() == 1);
+    CHECK(loops[0].size() == 8);
+    for (const Vec3& p : loops[0]) {
+        CHECK((p.x() == 0.0 || p.x() == 100.0 || p.y() == 0.0 || p.y() == 100.0));
+    }
+
+    // The same triangles with every corner repeated per triangle, as STL has them.
+    TargetMesh soup;
+    for (const auto& t : mesh.triangles) {
+        const auto first = static_cast<std::uint32_t>(soup.vertices.size());
+        for (const std::uint32_t k : t) {
+            soup.vertices.push_back(mesh.vertices[k]);
+        }
+        soup.triangles.push_back({first, first + 1, first + 2});
+    }
+    const auto merged = ada::mesh_outline(soup);
+    REQUIRE(merged.size() == 1);
+    CHECK(merged[0].size() == 8);
+
+    CHECK(ada::mesh_outline(TargetMesh{}).empty());
+}
+
+TEST_CASE("heights along an axis are read off the mesh", "[io][target]") {
+    const TargetMesh mesh = tilted_grid();
+    const std::optional<double> z = ada::mesh_height(mesh, 2, 63.0, 21.0);
+    REQUIRE(z.has_value());
+    CHECK(std::abs(*z - (0.1 * 63.0 + 0.2 * 21.0)) < 1e-12);
+    CHECK_FALSE(ada::mesh_height(mesh, 2, 150.0, 20.0).has_value());
+    // Along x: where the line (y, z) = (50, 12) meets the plane, x = 20.
+    const std::optional<double> x = ada::mesh_height(mesh, 0, 50.0, 12.0);
+    REQUIRE(x.has_value());
+    CHECK(std::abs(*x - 20.0) < 1e-12);
 }

@@ -11,6 +11,7 @@
 #include <fstream>
 #include <iterator>
 #include <map>
+#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -22,6 +23,10 @@ namespace ada {
 static_assert(std::endian::native == std::endian::little);
 
 namespace {
+
+/// Barycentric slack when testing whether a line meets a triangle: a probe
+/// exactly on an edge between two triangles must hit one of them.
+constexpr double kInsideTriangle = 1e-9;
 
 [[noreturn]] void fail(const std::filesystem::path& path, const std::string& what) {
     throw std::invalid_argument(fmt::format("{}: {}", path.generic_string(), what));
@@ -365,6 +370,89 @@ std::vector<Vec3> sample_target(const TargetMesh& mesh, double spacing) {
         }
     }
     return points;
+}
+
+std::vector<std::vector<Vec3>> mesh_outline(const TargetMesh& mesh) {
+    // Merge repeated positions, then count how often each edge is used.
+    std::map<std::array<double, 3>, std::uint32_t> merged;
+    std::vector<std::uint32_t> id(mesh.vertices.size());
+    std::vector<Vec3> unique;
+    for (std::size_t k = 0; k < mesh.vertices.size(); ++k) {
+        const Vec3& v = mesh.vertices[k];
+        const auto [it, added] = merged.emplace(std::array<double, 3>{v.x(), v.y(), v.z()},
+                                                static_cast<std::uint32_t>(unique.size()));
+        if (added) {
+            unique.push_back(v);
+        }
+        id[k] = it->second;
+    }
+    std::map<std::pair<std::uint32_t, std::uint32_t>, int> uses;
+    for (const auto& t : mesh.triangles) {
+        for (int e = 0; e < 3; ++e) {
+            const std::uint32_t a = id[t[static_cast<std::size_t>(e)]];
+            const std::uint32_t b = id[t[static_cast<std::size_t>((e + 1) % 3)]];
+            ++uses[{std::min(a, b), std::max(a, b)}];
+        }
+    }
+    std::map<std::uint32_t, std::vector<std::uint32_t>> next;
+    for (const auto& [edge, count] : uses) {
+        if (count == 1) {
+            next[edge.first].push_back(edge.second);
+            next[edge.second].push_back(edge.first);
+        }
+    }
+    std::vector<std::vector<Vec3>> loops;
+    std::set<std::uint32_t> visited;
+    for (const auto& [start, unused] : next) {
+        if (visited.count(start) > 0) {
+            continue;
+        }
+        std::vector<Vec3> loop;
+        std::uint32_t previous = start;
+        std::uint32_t current = start;
+        while (visited.insert(current).second) {
+            loop.push_back(unique[current]);
+            const auto& around = next[current];
+            const auto step = std::find_if(around.begin(), around.end(), [&](std::uint32_t n) {
+                return n != previous && visited.count(n) == 0;
+            });
+            if (step == around.end()) {
+                break;
+            }
+            previous = current;
+            current = *step;
+        }
+        loops.push_back(std::move(loop));
+    }
+    return loops;
+}
+
+std::optional<double> mesh_height(const TargetMesh& mesh, int axis, double a, double b) {
+    if (axis < 0 || axis > 2) {
+        throw std::invalid_argument(fmt::format("axis must be 0, 1 or 2, got {}", axis));
+    }
+    // The two coordinates the line is fixed in, in order.
+    const int p = axis == 0 ? 1 : 0;
+    const int q = axis == 2 ? 1 : 2;
+    std::optional<double> best;
+    for (const auto& t : mesh.triangles) {
+        const Vec3& v1 = mesh.vertices[t[0]];
+        const Vec3& v2 = mesh.vertices[t[1]];
+        const Vec3& v3 = mesh.vertices[t[2]];
+        const double det = (v2[q] - v3[q]) * (v1[p] - v3[p]) + (v3[p] - v2[p]) * (v1[q] - v3[q]);
+        if (det == 0.0) {
+            continue; // seen edge-on from this axis
+        }
+        const double l1 = ((v2[q] - v3[q]) * (a - v3[p]) + (v3[p] - v2[p]) * (b - v3[q])) / det;
+        const double l2 = ((v3[q] - v1[q]) * (a - v3[p]) + (v1[p] - v3[p]) * (b - v3[q])) / det;
+        const double l3 = 1.0 - l1 - l2;
+        if (std::min({l1, l2, l3}) < -kInsideTriangle) {
+            continue;
+        }
+        const double h = l1 * v1[axis] + l2 * v2[axis] + l3 * v3[axis];
+        best = best.has_value() ? std::max(*best, h) : h;
+    }
+    return best;
 }
 
 } // namespace ada
