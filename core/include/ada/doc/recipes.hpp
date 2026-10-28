@@ -45,7 +45,12 @@ std::vector<EdgeLink> all_edge_links(const Scene& scene);
 /// How far a boundary curve had to give way (see `solve_scene`).
 struct CurveDeviation {
     std::string curve;
-    double max_mm = 0.0; ///< Largest control-point distance, an upper bound on the curve's.
+    /// Largest distance between the curve as given and the patch edge solved
+    /// on it, closest point to closest point, both ways. Not control points or
+    /// equal parameters: next to a node, control points slide along the curve
+    /// (on the L3 hood, 14.5 mm of control-point movement and 5.9 mm at equal
+    /// parameters were a fraction of a millimetre of shape).
+    double max_mm = 0.0;
 };
 
 /// How a fit to the scene's target went.
@@ -66,7 +71,8 @@ struct SceneSolveSummary {
     FitSummary fit;
 };
 
-/// Solves every recipe patch and stores the result (`solved = true`).
+/// Solves every recipe patch and stores the result (`solved = true`), after
+/// `harmonize_degrees`.
 ///
 /// Stage 1 solves all from_boundaries patches together: their boundary rows
 /// on the curves, the explicit edge links between them and any fixed patches
@@ -126,6 +132,14 @@ int curve_degree(const Scene& scene, const ScenePatch& patch, bool along_v);
 /// unknown patch.
 std::vector<std::string>
 set_degree(Scene& scene, const std::string& patch, bool along_v, int degree);
+
+/// Raises from_boundaries patches so that edges joined by links have equal
+/// degrees along them: each group of patch directions tied by links takes the
+/// highest degree in it (recorded as degree overrides). Matched edges need
+/// equal degrees, a degree can always be raised exactly, and a patch cannot
+/// go below its curves, so this is the only way such a joint can be solved.
+/// `solve_scene` does it first.
+void harmonize_degrees(Scene& scene);
 
 /// What CV economy did.
 struct EconomyResult {

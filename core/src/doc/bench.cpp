@@ -39,7 +39,9 @@ BenchCase run_case(const std::filesystem::path& path) {
         c.patches = scene.patches.size();
 
         const auto t0 = std::chrono::steady_clock::now();
-        const SceneSolveSummary solved = solve_scene(scene);
+        const SceneSolveSummary solved = scene.fit.has_value() && scene.fit->economy
+                                             ? fit_economically(scene).last
+                                             : solve_scene(scene);
         c.solve_ms = since(t0);
         c.unknowns = solved.unknowns;
         for (const CurveDeviation& d : solved.curves) {

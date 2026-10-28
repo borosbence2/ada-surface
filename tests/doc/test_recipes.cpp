@@ -451,3 +451,22 @@ TEST_CASE("raising a degree starts the solve from the same surface", "[doc][reci
     }
     CHECK(worst < kSameMm);
 }
+
+TEST_CASE("linked patches are raised to a common degree along their joint", "[doc][recipes]") {
+    // The outer side curve of hood_0_1 goes to degree 5 (elevated: the same
+    // curve), so that patch is degree 5 in v while hood_0_0, joined to it along
+    // v, is degree 3. Matched edges need equal degrees; the lower one rises.
+    Scene scene = hood_network();
+    for (ada::SceneCurve& c : scene.curves) {
+        if (c.id == "v_2_0") {
+            c.curve = c.curve.elevated(2);
+            c.through.reset();
+        }
+    }
+    ada::solve_scene(scene);
+    CHECK(scene.patch("hood_0_1").patch.degree_v() == 5);
+    CHECK(scene.patch("hood_0_0").patch.degree_v() == 5);
+    CHECK(scene.patch("hood_1_0").patch.degree_v() == 3); // tied to neither
+    CHECK(scene.patch("hood_0_0").patch.degree_u() == 3);
+    require_joins(scene);
+}

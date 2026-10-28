@@ -114,6 +114,16 @@ inline constexpr double kDefaultTargetSpacing = 10.0;
 /// data leads, and the fairness only steadies what the data leaves loose.
 inline constexpr double kDefaultFitWeight = 1000.0;
 
+/// Which points of a target a fit uses.
+enum class TargetSample {
+    /// Points spread evenly over a mesh's triangles (`sample_target`): for
+    /// scans, where the triangles are the measurement.
+    Surface,
+    /// The vertices only: for a CAD tessellation, whose vertices lie on the
+    /// CAD surface while its flat facets cut below a curved one.
+    Vertices,
+};
+
 /// A shape to fit to: a mesh or point cloud in a file next to the scene.
 struct SceneTarget {
     std::string id;
@@ -121,6 +131,7 @@ struct SceneTarget {
     std::string file;
     double spacing = kDefaultTargetSpacing; ///< mm between samples on a mesh
     double scale = 1.0;                     ///< file units to millimetres
+    TargetSample sample = TargetSample::Surface;
     /// Filled by `load_targets`: the file's absolute path and the points.
     std::filesystem::path resolved;
     std::shared_ptr<const std::vector<Vec3>> points;
@@ -133,6 +144,9 @@ struct SceneTarget {
 struct FitSettings {
     std::string target;
     double weight = kDefaultFitWeight;
+    /// Solve with CV economy (`fit_economically`) rather than at the current
+    /// degrees. `ada solve`, `ada bench` and the solve tool follow it.
+    bool economy = false;
 };
 
 struct SolveSettings {

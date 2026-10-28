@@ -234,7 +234,7 @@ void write_fit_example() {
     target.id = "scan";
     target.file = "hood-fit-scan.ply";
     scene.targets.push_back(target);
-    scene.fit = ada::FitSettings{"scan", ada::kDefaultFitWeight};
+    scene.fit = ada::FitSettings{"scan", ada::kDefaultFitWeight, false};
     scene.budgets.fit_max_mm = 0.5;
     scene.budgets.fit_rms_mm = 0.1;
     scene.budgets.max_degree = 6;

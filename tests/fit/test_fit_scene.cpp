@@ -79,7 +79,7 @@ Scene fit_scene(std::vector<Vec3> points, int degree) {
     target.file = "scan.ply";
     target.points = std::make_shared<const std::vector<Vec3>>(std::move(points));
     scene.targets.push_back(target);
-    scene.fit = ada::FitSettings{"scan", ada::kDefaultFitWeight};
+    scene.fit = ada::FitSettings{"scan", ada::kDefaultFitWeight, false};
     return scene;
 }
 
@@ -215,4 +215,37 @@ TEST_CASE("CV economy stops at the degree cap when the budget is out of reach",
     no_budget.fit.reset();
     no_budget.budgets.fit_rms_mm = 0.1;
     CHECK_THROWS_AS(ada::fit_economically(no_budget), std::invalid_argument);
+}
+
+TEST_CASE("a target can be sampled at its vertices only", "[fit][scene]") {
+    // A CAD tessellation's vertices lie on the CAD surface; its flat facets do
+    // not. Two triangles of a square: surface sampling gives points inside
+    // the facets, vertex sampling the four corners.
+    const auto dir = std::filesystem::temp_directory_path() / "ada-fit-vertices";
+    std::filesystem::remove_all(dir);
+    std::filesystem::create_directories(dir);
+    std::ofstream(dir / "square.obj") << "v 0 0 0\nv 100 0 0\nv 100 100 0\nv 0 100 0\nf 1 2 3 4\n";
+    Scene scene = fit_scene({}, 4);
+    scene.targets[0].file = "square.obj";
+    scene.targets[0].sample = ada::TargetSample::Vertices;
+    nlohmann::json json = ada::scene_to_json(scene);
+    CHECK(json.at("targets")[0].at("sample") == "vertices");
+    ada::load_targets(scene, dir);
+    CHECK(scene.targets[0].points->size() == 4);
+
+    Scene surface = ada::scene_from_json(json);
+    surface.targets[0].sample = ada::TargetSample::Surface;
+    ada::load_targets(surface, dir);
+    CHECK(surface.targets[0].points->size() > 4);
+    std::filesystem::remove_all(dir);
+}
+
+TEST_CASE("a fit can ask for CV economy, and the file says so", "[fit][scene][economy]") {
+    Scene scene = fit_scene(samples(bumped_panel(), 0.0), 3);
+    scene.fit->economy = true;
+    const nlohmann::json json = ada::scene_to_json(scene);
+    CHECK(json.at("fit").at("economy") == true);
+    CHECK(ada::scene_from_json(json).fit->economy);
+    scene.fit->economy = false;
+    CHECK_FALSE(ada::scene_to_json(scene).at("fit").contains("economy"));
 }

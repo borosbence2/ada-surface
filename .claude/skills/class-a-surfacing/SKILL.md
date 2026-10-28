@@ -100,13 +100,13 @@ coordinates; do not recompute or round them separately per curve.
 one curve per patch. Where the curve segments meet, G1 or G2 across the
 joint needs them to continue each other's tangent and curvature. If they do
 not, the solve makes them give way, and the result reports it as
-`solve.curves_moved` (the largest control-point move, an upper bound on how
-far the curve moved). The bundled cases move up to 0.6 mm (2 × 2 hood) and
-1.5 mm (3 × 3 panel), which is normal for segments fitted one by one. Tell
-the user when it is more than about 0.1 mm, because their lines changed. If
-those lines matter (hard points, feature lines), sample all segments of a
-line from one smooth function so they already continue each other, or
-relax that joint.
+`solve.curves_moved` (the largest distance between a curve as given and
+the patch edge solved on it). The bundled networks move theirs up to 0.07 mm
+(2 x 2 hood) and 0.11 mm (3 x 3 panel), which is normal for segments fitted
+one by one. Tell the user when it is more than about 0.1 mm, because their
+lines changed. If those lines matter (hard points, feature lines), sample all
+segments of a line from one smooth function so they already continue each
+other, or relax that joint.
 
 **Patch layout.** Use four-sided patches only. Prefer few, large patches, and
 put patch boundaries where the shape changes character: a feature line, the
@@ -182,8 +182,9 @@ instead, with the reason.
 - **`edges_do_not_meet` / `not_on_centre_plane`.** You named the wrong edge.
   The error's `try` names the edge that does lie there, and `get_selection`
   lists the edges along a picked one.
-- **`degree_mismatch`.** Joined edges need equal degrees along them; raise
-  the lower one.
+- **`degree_mismatch`** (from `patch_blend`). The two edges a blend joins
+  need the same degree along them; raise the lower one. Linked edges of
+  different degrees need nothing: the solve raises the lower side itself.
 - **`constraints_contradict`.** Read `details.conflicts`: every constraint
   taking part, each with its residual in mm. Typical pairs: a symmetry link
   against a curve that is not exactly in Y = 0 (refit the curve with y = 0);

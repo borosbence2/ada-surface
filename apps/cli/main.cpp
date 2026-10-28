@@ -55,7 +55,7 @@ int run_report(const std::filesystem::path& scene_path, const std::string& json_
 int run_solve(const std::filesystem::path& scene_path, const std::string& output, bool economy) {
     ada::Scene scene = ada::read_scene(scene_path);
     ada::SceneSolveSummary summary;
-    if (economy) {
+    if (economy || (scene.fit.has_value() && scene.fit->economy)) {
         const ada::EconomyResult result = ada::fit_economically(scene);
         for (const std::string& step : result.steps) {
             fmt::print("{}\n", step);

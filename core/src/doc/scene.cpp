@@ -483,6 +483,11 @@ Scene scene_from_json(const nlohmann::json& json) {
         target.file = string_field(targets[k], "file", where);
         target.spacing = targets[k].value("spacing_mm", kDefaultTargetSpacing);
         target.scale = targets[k].value("scale", 1.0);
+        const std::string sample = targets[k].value("sample", std::string("surface"));
+        if (sample != "surface" && sample != "vertices") {
+            fail(where + ".sample", "expected \"surface\" or \"vertices\"");
+        }
+        target.sample = sample == "vertices" ? TargetSample::Vertices : TargetSample::Surface;
         if (!(target.spacing > 0.0) || !(target.scale > 0.0)) {
             fail(where, "spacing_mm and scale must be positive");
         }
@@ -494,7 +499,8 @@ Scene scene_from_json(const nlohmann::json& json) {
     if (json.contains("fit")) {
         const nlohmann::json& fit = json.at("fit");
         FitSettings settings{string_field(fit, "target", "$.fit"),
-                             fit.value("weight", kDefaultFitWeight)};
+                             fit.value("weight", kDefaultFitWeight),
+                             fit.value("economy", false)};
         if (target_ids.count(settings.target) == 0) {
             fail("$.fit.target", fmt::format("no target with id '{}'", settings.target));
         }
@@ -590,12 +596,18 @@ nlohmann::json scene_to_json(const Scene& scene) {
             if (t.scale != 1.0) {
                 target["scale"] = t.scale;
             }
+            if (t.sample == TargetSample::Vertices) {
+                target["sample"] = "vertices";
+            }
             targets.push_back(std::move(target));
         }
         out["targets"] = std::move(targets);
     }
     if (scene.fit.has_value()) {
         out["fit"] = {{"target", scene.fit->target}, {"weight", scene.fit->weight}};
+        if (scene.fit->economy) {
+            out["fit"]["economy"] = true;
+        }
     }
     if (!budgets.empty()) {
         out["budgets"] = std::move(budgets);
@@ -632,6 +644,7 @@ void load_targets(Scene& scene, const std::filesystem::path& directory) {
         std::filesystem::file_time_type time;
         double spacing;
         double scale;
+        TargetSample sample;
         std::shared_ptr<const std::vector<Vec3>> points;
     };
 
@@ -647,16 +660,19 @@ void load_targets(Scene& scene, const std::filesystem::path& directory) {
         const std::string key = t.resolved.generic_string();
         const auto hit = cache.find(key);
         if (hit != cache.end() && hit->second.time == time && hit->second.spacing == t.spacing &&
-            hit->second.scale == t.scale) {
+            hit->second.scale == t.scale && hit->second.sample == t.sample) {
             t.points = hit->second.points;
             continue;
         }
-        std::vector<Vec3> points = sample_target(read_target_mesh(t.resolved), t.spacing / t.scale);
+        const TargetMesh mesh = read_target_mesh(t.resolved);
+        std::vector<Vec3> points = t.sample == TargetSample::Vertices
+                                       ? mesh.vertices
+                                       : sample_target(mesh, t.spacing / t.scale);
         for (Vec3& p : points) {
             p *= t.scale;
         }
         t.points = std::make_shared<const std::vector<Vec3>>(std::move(points));
-        cache[key] = {time, t.spacing, t.scale, t.points};
+        cache[key] = {time, t.spacing, t.scale, t.sample, t.points};
     }
 }
 

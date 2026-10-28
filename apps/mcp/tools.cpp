@@ -178,7 +178,19 @@ ToolResult quality_report(SceneSession& session) {
 ToolResult solve(SceneSession& session, History& history) {
     Scene scene = session.current();
     const Scene before = scene;
-    const SceneSolveSummary summary = solve_scene(scene);
+    std::string economy;
+    SceneSolveSummary summary;
+    if (scene.fit.has_value() && scene.fit->economy) {
+        const EconomyResult result = fit_economically(scene);
+        for (const std::string& step : result.steps) {
+            economy += step + "\n";
+        }
+        economy += result.met ? "CV economy: the fit budgets are met\n"
+                              : "CV economy: the fit budgets are out of reach at the degree cap\n";
+        summary = result.last;
+    } else {
+        summary = solve_scene(scene);
+    }
     history.record(before, "solved the scene");
     write_scene(scene, session.path());
 
@@ -199,7 +211,7 @@ ToolResult solve(SceneSession& session, History& history) {
         summary.unknowns,
         summary.max_residual,
         summary.milliseconds);
-    text += moved + "\n" + format_report(report);
+    text += economy + moved + "\n" + format_report(report);
     nlohmann::json structured = {{"stages", summary.stages},
                                  {"unknowns", summary.unknowns},
                                  {"max_residual_mm", summary.max_residual},

@@ -1,5 +1,7 @@
 #include "ada/doc/recipes.hpp"
 
+#include "ada/analysis/sampling.hpp"
+#include "ada/geom/closest_point.hpp"
 #include "ada/solve/constraints.hpp"
 #include "ada/tolerances.hpp"
 
@@ -107,6 +109,11 @@ BezierPatch starting_patch(const Scene& scene, const ScenePatch& p, int degree_u
 int blend_degree(const Blend& b) {
     return b.degree_across.value_or(2 * order_of(b.continuity) + 1);
 }
+
+/// Samples along a curve when measuring how far it gave way: the curve and the
+/// edge on it are polynomials of degree at most kMaxRecipeDegree, and their
+/// difference can turn at most that many times.
+constexpr std::size_t kCurveDeviationSamples = 33;
 
 /// The most solves a fit's parameter correction takes. Footpoints on a smooth
 /// patch settle in a handful; the cap only stops a fit that keeps hopping.
@@ -364,6 +371,7 @@ std::vector<EdgeLink> all_edge_links(const Scene& scene) {
 SceneSolveSummary solve_scene(Scene& scene) {
     const auto t0 = std::chrono::steady_clock::now();
     SceneSolveSummary summary;
+    harmonize_degrees(scene);
     const SolveWeights weights{scene.solve.fairness, scene.solve.order, scene.solve.move};
 
     auto is_blend = [](const ScenePatch& p) {
@@ -524,11 +532,16 @@ SceneSolveSummary solve_scene(Scene& scene) {
                     if (ids[s] != curve.id) {
                         continue;
                     }
-                    const std::vector<Vec3> row =
-                        scene.patch(id).patch.edge_row(sides[s].second, 0);
+                    const BezierCurve solved = scene.patch(id).patch.boundary(sides[s].second);
                     worst = std::max(worst, 0.0);
-                    for (std::size_t m = 0; m < row.size(); ++m) {
-                        worst = std::max(worst, (row[m] - sides[s].first->control_point(m)).norm());
+                    // Geometric, both ways: control points next to a node may
+                    // slide along the curve, which changes where a parameter
+                    // lands but not the shape.
+                    for (const double t : uniform_parameters(kCurveDeviationSamples)) {
+                        worst =
+                            std::max({worst,
+                                      closest_point(*sides[s].first, solved.evaluate(t)).distance,
+                                      closest_point(solved, sides[s].first->evaluate(t)).distance});
                     }
                 }
             }
@@ -758,6 +771,43 @@ set_degree(Scene& scene, const std::string& patch, bool along_v, int degree) {
         }
     }
     return changed;
+}
+
+void harmonize_degrees(Scene& scene) {
+    // The degree a patch has in one direction now; none for a blend, which
+    // follows its sources along its edges and owns its degree across.
+    auto degree_of = [&scene](const ScenePatch& p, bool along_v) -> std::optional<int> {
+        if (!p.recipe.has_value()) {
+            return along_v ? p.patch.degree_v() : p.patch.degree_u();
+        }
+        if (const auto* fb = std::get_if<FromBoundaries>(&*p.recipe)) {
+            const Boundaries b = resolve_boundaries(scene, *fb, p.id);
+            return along_v ? b.degree_v() : b.degree_u();
+        }
+        return std::nullopt;
+    };
+    for (std::size_t k = 0; k < scene.patches.size(); ++k) {
+        const ScenePatch& start = scene.patches[k];
+        if (!start.recipe.has_value() || !std::holds_alternative<FromBoundaries>(*start.recipe)) {
+            continue;
+        }
+        for (const bool along_v : {false, true}) {
+            const std::vector<Axis> group = tied_axes(scene, {scene.patches[k].id, along_v});
+            int highest = 0;
+            for (const Axis& a : group) {
+                if (const std::optional<int> d = degree_of(scene.patch(a.patch), a.along_v)) {
+                    highest = std::max(highest, *d);
+                }
+            }
+            for (const Axis& a : group) {
+                ScenePatch& p = patch_of(scene, a.patch);
+                auto* fb = p.recipe.has_value() ? std::get_if<FromBoundaries>(&*p.recipe) : nullptr;
+                if (fb != nullptr && degree_of(p, a.along_v) < highest) {
+                    (a.along_v ? fb->degree_v : fb->degree_u) = highest;
+                }
+            }
+        }
+    }
 }
 
 EconomyResult fit_economically(Scene& scene) {

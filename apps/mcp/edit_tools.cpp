@@ -681,10 +681,8 @@ ToolResult edge_constrain(SceneSession& session, History& history, const nlohman
                           "{} lies along {}; link that instead", edge_name(a), id_list(touching)),
                 {{"gap_mm", gap}, {"touching", touching}});
         }
-        if (scene.patch(a.patch).patch.degree_along(a.edge) !=
-            scene.patch(b.patch).patch.degree_along(b.edge)) {
-            throw degree_mismatch(scene, a, b);
-        }
+        // Unequal degrees along the joint are fine: the solve raises the
+        // lower side (harmonize_degrees).
         if (link != scene.edges.end()) {
             const Continuity before = link->continuity;
             link->continuity = *continuity;

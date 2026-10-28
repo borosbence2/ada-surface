@@ -8,7 +8,8 @@
 
 TEST_CASE("the bench runs every committed case and they all pass", "[doc][bench]") {
     const ada::BenchResult result = ada::run_bench(std::filesystem::path(ADA_SOURCE_DIR) / "cases");
-    REQUIRE(result.cases.size() == 5); // cases/examples is a subdirectory, not part of the bench
+    // L0 to L3; cases/examples and cases/targets are subdirectories, not part of the bench.
+    REQUIRE(result.cases.size() == 6);
     for (const ada::BenchCase& c : result.cases) {
         INFO(c.name << ": " << c.error);
         CHECK(c.pass);
@@ -17,7 +18,8 @@ TEST_CASE("the bench runs every committed case and they all pass", "[doc][bench]
     CHECK(result.pass);
     const std::string markdown = ada::bench_markdown(result);
     CHECK(markdown.find("| L2-hood-2x2-sym | pass |") != std::string::npos);
-    CHECK(ada::to_json(result).at("cases").size() == 5);
+    CHECK(markdown.find("| L3-hood-from-target | pass |") != std::string::npos);
+    CHECK(ada::to_json(result).at("cases").size() == 6);
 }
 
 TEST_CASE("a broken case fails the bench without stopping it", "[doc][bench]") {
