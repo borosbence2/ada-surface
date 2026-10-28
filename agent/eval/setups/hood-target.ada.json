@@ -1,0 +1,15 @@
+{
+  "format": "ada-scene",
+  "version": 1,
+  "units": "mm",
+  "curves": [],
+  "patches": [],
+  "targets": [
+    {
+      "file": "../../../cases/targets/drivaer-hood.ply",
+      "id": "drivaer",
+      "sample": "vertices"
+    }
+  ],
+  "description": "Eval setup: the DrivAer hood's right half (y >= 0), its CAD tessellation attached as the target 'drivaer'. Nothing is built yet."
+}

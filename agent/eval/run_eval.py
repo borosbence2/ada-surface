@@ -281,7 +281,7 @@ def judge(task: dict, tdir: Path, ada: Path, case_budgets: dict) -> list[dict]:
     if "links" in checks:
         spec = checks["links"]
         levels = [e["continuity"] for e in edges]
-        ok = len(edges) == spec["count"]
+        ok = len(edges) == spec["count"] if "count" in spec else len(edges) > 0
         if "all" in spec:
             ok = ok and all(c == spec["all"] for c in levels)
         if "count_G2" in spec:
@@ -297,6 +297,16 @@ def judge(task: dict, tdir: Path, ada: Path, case_budgets: dict) -> list[dict]:
         strong = [s for s in report.get("symmetry", []) if LEVEL[s["continuity"]] >= LEVEL[spec["at_least"]]]
         add("symmetry", len(strong) >= spec["min_count"],
             ", ".join(f"{s['edge']} {s['continuity']}" for s in report.get("symmetry", [])) or "none")  # fmt: skip
+    if "fit" in checks:
+        spec = checks["fit"]
+        fit = report.get("fit")
+        if not fit:
+            add("fit", False, "not fitted to a target")
+        else:
+            ok = (fit.get("target") == spec["target"] and fit.get("points", 0) > 0
+                  and fit.get("outside", 0) == 0 and fit.get("max_mm", math.inf) <= spec["max_mm"])  # fmt: skip
+            add("fit", ok, f"target {fit.get('target')}: max {fit.get('max_mm', math.nan):.3f} mm over "
+                           f"{fit.get('points', 0)} points, {fit.get('outside', 0)} beyond the patches")  # fmt: skip
     if "blends" in checks:
         spec = checks["blends"]
         blends = [p["recipe"] for p in scene.get("patches", []) if p.get("recipe", {}).get("type") == "blend"]

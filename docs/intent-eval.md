@@ -1,7 +1,7 @@
 # Intent eval (M10)
 
 Does the agent turn plain-language intent into the right surfaces? The eval
-gives it twelve tasks of the kind a designer would ask for and judges each
+gives it thirteen tasks of the kind a designer would ask for and judges each
 one by the scene it leaves behind, never by reading the conversation. The
 baseline below is the reference that later runs are compared against.
 
@@ -34,7 +34,7 @@ judgement. It also writes `scorecard.md` and `scorecard.json`, which compare
 the run with the previous one, so a regression shows.
 
 ```
-python agent/eval/run_eval.py                       # all twelve tasks, about ten minutes
+python agent/eval/run_eval.py                       # all thirteen tasks, about a quarter of an hour
 python agent/eval/run_eval.py --tasks pick-g1,undo  # some of them
 python agent/eval/run_eval.py --rejudge results/eval/<run>   # apply changed checks to a finished run
 ```
@@ -57,9 +57,10 @@ Every check reads the final scene and its quality report:
 | `patches` | the scene has the expected number of patches |
 | `size`, `range` | the surface's bounding box (sampled on the patches, not taken from the control net) has the expected size or limits |
 | `size_like_setup` | that bounding box moved less than a tolerance from the setup's |
-| `links`, `link` | the joints (explicit and implied by blends) have the expected count and continuity |
+| `links`, `link` | the joints (explicit and implied by blends) have the expected count (when given) and continuity |
 | `symmetry` | enough Y = 0 edges join their mirror image at the required continuity or better |
 | `blends` | the expected blend patches exist at the expected continuity |
+| `fit` | the scene is fitted to the named target, every target point lies over the patches, and the largest distance is within the given value |
 | `iges` | the IGES file exists with one entity 128 per patch |
 
 A task passes when all its checks do.
@@ -80,6 +81,7 @@ A task passes when all its checks do.
 | `export` | export IGES | export |
 | `fix-wavy` | "the reflections wobble along one side, fix it" | finding a bad curve and refitting it |
 | `lengthen-hood` | make the hood 100 mm longer | moving shared nodes, several curves at once |
+| `rebuild-hood` | "rebuild this hood, G2 at Y = 0, 0.5 mm", with the DrivAer hood's tessellation attached as the target | reading a target's outline, `network_from_target`, budgets, fitting (L3) |
 
 ## Results
 
@@ -128,3 +130,26 @@ What the transcripts show:
   guard against regressions; they don't yet measure much. Harder tasks are
   the next step for the eval: contradictory constraints, an under-specified
   intent, a fix that needs a higher degree, a layout change.
+
+### `rebuild-hood`, 2026-10-28: pass
+
+Added with M12 and run on its own; its entry joined `baseline.json`. Claude
+Opus 5.5 through Claude Code 2.1.312, ADA at the M12 tools (Release): 28 tool
+calls, no tool errors, 1.0 minute, $0.78 at API prices.
+
+| task | result | tool calls | tool errors | turns | minutes | cost (USD) |
+|---|---|---:|---:|---:|---:|---:|
+| rebuild-hood | pass | 28 | 0 | 30 | 1.0 | 0.78 |
+
+The agent read the guide, then `target_info`, and laid a 4 × 4 network on
+the four outline corners. It put G1 symmetry on the four centre edges (G1
+at a mirror gives G2), set `fit_max_mm` to 0.5 and the fit last (weight 10,
+CV economy). The default zig-zag budget (0 rows) then failed. The agent
+rebuilt the network with degree-3 outline curves, which halved the zig-zag
+rows but doubled the deviation (0.21 to 0.41 mm, still within 0.5). It
+stopped there and asked whether the zig-zag budget could rise, instead of
+changing it. Asking was right; trading the fit for zig-zags was not, and the
+craft guide now says why.
+
+The first judgement failed the new `fit` check on a judge bug: it read the
+report's fit numbers from the wrong place. `--rejudge` passed it.

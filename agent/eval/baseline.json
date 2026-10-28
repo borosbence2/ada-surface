@@ -440,6 +440,57 @@
       "exit": 0,
       "timed_out": false,
       "seconds": 72.90599999995902
+    },
+    {
+      "id": "rebuild-hood",
+      "pass": true,
+      "checks": [
+        {
+          "check": "quality",
+          "pass": true,
+          "detail": "pass"
+        },
+        {
+          "check": "range",
+          "pass": true,
+          "detail": "y_min -0.0"
+        },
+        {
+          "check": "links",
+          "pass": true,
+          "detail": "hood_0_0.UMax ~ hood_0_1.UMin G2, hood_0_0.VMax ~ hood_1_0.VMin G2, hood_0_1.UMax ~ hood_0_2.UMin G2, hood_0_1.VMax ~ hood_1_1.VMin G2, hood_0_2.UMax ~ hood_0_3.UMin G2, hood_0_2.VMax ~ hood_1_2.VMin G2, hood_0_3.VMax ~ hood_1_3.VMin G2, hood_1_0.UMax ~ hood_1_1.UMin G2, hood_1_0.VMax ~ hood_2_0.VMin G2, hood_1_1.UMax ~ hood_1_2.UMin G2, hood_1_1.VMax ~ hood_2_1.VMin G2, hood_1_2.UMax ~ hood_1_3.UMin G2, hood_1_2.VMax ~ hood_2_2.VMin G2, hood_1_3.VMax ~ hood_2_3.VMin G2, hood_2_0.UMax ~ hood_2_1.UMin G2, hood_2_0.VMax ~ hood_3_0.VMin G2, hood_2_1.UMax ~ hood_2_2.UMin G2, hood_2_1.VMax ~ hood_3_1.VMin G2, hood_2_2.UMax ~ hood_2_3.UMin G2, hood_2_2.VMax ~ hood_3_2.VMin G2, hood_2_3.VMax ~ hood_3_3.VMin G2, hood_3_0.UMax ~ hood_3_1.UMin G2, hood_3_1.UMax ~ hood_3_2.UMin G2, hood_3_2.UMax ~ hood_3_3.UMin G2"
+        },
+        {
+          "check": "symmetry",
+          "pass": true,
+          "detail": "hood_0_0.UMin G1, hood_1_0.UMin G1, hood_2_0.UMin G1, hood_3_0.UMin G1"
+        },
+        {
+          "check": "fit",
+          "pass": true,
+          "detail": "target drivaer: max 0.410 mm over 744 points, 0 beyond the patches"
+        }
+      ],
+      "calls": {
+        "Skill": 1,
+        "ToolSearch": 2,
+        "scene_open": 1,
+        "target_info": 1,
+        "network_from_target": 2,
+        "symmetry_constrain": 8,
+        "budgets_set": 2,
+        "fit_set": 2,
+        "quality_report": 1,
+        "Grep": 1,
+        "undo": 7
+      },
+      "tool_errors": 0,
+      "turns": 30,
+      "cost_usd": 0.7847625,
+      "exit": 0,
+      "timed_out": false,
+      "seconds": 58.01500000001397,
+      "run": "20261028-192643"
     }
   ],
   "rejudged": "20261027-184711"

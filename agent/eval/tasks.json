@@ -1,7 +1,8 @@
 {
   "note": "Intent eval tasks (M10). {scene} is the task's scene file and {dir} its folder. 'setup' is copied to {scene} before the run and the ada server starts with it open; 'selection' plays the part of a pick in ADA Studio. Success is decided by 'checks' on the resulting scene and its quality report, judged under the budgets given here (or the setup's), never the scene's own. See docs/intent-eval.md.",
   "case_budgets": {
-    "panel": {"max_degree": 3, "allow_curvature_reversal": false, "max_highlight_inflections": 1}
+    "panel": {"max_degree": 3, "allow_curvature_reversal": false, "max_highlight_inflections": 1},
+    "drivaer-hood": {"fit_max_mm": 0.5, "max_degree": 7, "allow_curvature_reversal": true, "max_zigzag_rows": 12, "max_highlight_inflections": 3}
   },
   "tasks": [
     {
@@ -120,6 +121,18 @@
         "range": {"x_min": [-5, 5], "x_max": [1280, 1320]},
         "links": {"count": 4, "all": "G2"},
         "symmetry": {"min_count": 2, "at_least": "G1"}
+      }
+    },
+    {
+      "id": "rebuild-hood",
+      "setup": "hood-target.ada.json",
+      "prompt": "Rebuild this hood, G2 at Y = 0, 0.5 mm.",
+      "checks": {
+        "quality": "drivaer-hood",
+        "fit": {"target": "drivaer", "max_mm": 0.5},
+        "links": {"all": "G2"},
+        "symmetry": {"min_count": 2, "at_least": "G1"},
+        "range": {"y_min": [-1, 1]}
       }
     }
   ]

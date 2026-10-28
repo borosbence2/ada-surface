@@ -6,6 +6,7 @@ the outputs are committed."""
 import copy
 import json
 import math
+import os
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -65,4 +66,13 @@ save("roof-wavy.ada.json",
      wavy,
      "Eval setup: the L0 roof with its side edge at y = 650 rippling (degree 5 through nine "
      "points with a +-2 mm wave), so the highlight lines wobble.")
+
+# The L3 target alone: the agent lays the network, constrains it and fits it.
+drivaer = load("L3-hood-from-target.ada.json")
+targets = [dict(t, file=os.path.relpath(CASES / t["file"], SETUPS).replace(os.sep, "/")) for t in drivaer["targets"]]
+save("hood-target.ada.json",
+     {"format": drivaer["format"], "version": drivaer["version"], "units": drivaer["units"],
+      "curves": [], "patches": [], "targets": targets},
+     "Eval setup: the DrivAer hood's right half (y >= 0), its CAD tessellation attached as the target "
+     "'drivaer'. Nothing is built yet.")
 print("wrote", ", ".join(sorted(p.name for p in SETUPS.glob("*.ada.json"))))

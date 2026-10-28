@@ -117,6 +117,67 @@ degree does that.
 both sides. Degree across is 2k + 1 for Gk (5 for G2). The two edges need the
 same degree along them.
 
+## Fitting to a target
+
+When the user gives a shape to match (a scan, a CAD tessellation, "rebuild
+this hood"), the target leads, and the network's job is to carry it.
+
+1. **Attach it** with `target_add {id, file}`. Use `sample: "vertices"` for a
+   CAD tessellation: its vertices lie on the CAD surface, while its flat
+   facets cut below a curved one. Keep the default `"surface"` for a scan.
+   `scale` converts the file's units (1000 for metres).
+2. **Read its outline** with `target_info`: bounds, the axis it faces, and
+   for each outline loop its corners (where it turns sharply) and the sides
+   between them, with sides in Y = 0 flagged.
+3. **Lay the network** with `network_from_target {prefix, corners, rows,
+   cols}`. Give four corners in order round the outline. corners[0] →
+   corners[1] becomes the first row line (u grows along it), and corners[0] →
+   corners[3] the first column line (the first column's UMin). For a half
+   model, corners = [front centre, front side, rear side, rear centre] gives u
+   outwards and v rearwards, the layout of the bundled hoods, with the centre
+   line on UMin. Outline lines pass through every outline point at degree 5,
+   so the patch edges follow the target's edge. Inner lines are sections
+   through the target at degree 3. The result lists the edges in Y = 0:
+   `symmetry_constrain` each of them.
+4. **Set the user's tolerance** as a budget with `budgets_set` ("within 0.5
+   mm" is `{"fit_max_mm": 0.5}`). Then **set the fit last**, with `fit_set
+   {target, economy: true}`. From then on every edit solves the fit, which
+   takes seconds rather than milliseconds, so build and constrain first.
+5. **Read the fit** in every result. `fit` has the max, RMS and p95 distance
+   over the target's points, and `outside`: points beyond the patches, where
+   the network does not cover the target. `economy` lists the patches CV
+   economy raised and whether the fit budgets are met.
+
+**Rows and columns.** Start with as few patches as the shape allows, and let
+the fit say whether to add more. The DrivAer hood (about 1.1 × 0.7 m, half
+model) holds 0.5 mm at 4 × 4, at degree 5; at 3 × 3 its patches had to rise
+to degree 7. More patches cost joints to keep G2; more degree costs economy.
+
+**Weight.** `weight` (default 1000) sets how strongly the data leads against
+the fairness. On clean CAD data a low weight (10 for the DrivAer hood) lets
+the fairness even out the control nets while the fit stays within budget. On
+a noisy scan a lower weight keeps the noise out of the surface. Read the fit
+after each change.
+
+**CV economy decides the degrees** while it is on: each solve starts the
+patches at their curves' degrees, so `patch_set_degree` does not last. Turn it
+off (`fit_set {economy: false}`) to set degrees by hand.
+
+**The target's own shape.** A real panel may bend the other way in places
+(the DrivAer hood curls up at its rear outer corner), so a
+`curvature_reversal` on a fitted panel can be the target, not a defect. Check
+where the target itself bends before calling it either, and tell the user;
+whether that budget moves is their call.
+
+**Zig-zag rows on a fitted network.** G2 joints between patches of
+different size space control points unevenly (the solve matches parameter
+speed across a joint), so a fitted network can show `cv_zigzag_rows` with no
+visible wobble. Check `highlight_inflections` and the zebra before calling it
+a defect. Do not trade the fit for them: degree-3 outline curves halved the
+DrivAer hood's zig-zag rows but doubled its deviation (0.21 to 0.41 mm) and
+moved its outline by up to 3.5 mm. Keep the outline faithful and propose a
+zig-zag budget with that reason instead (the L3 case allows 12 per patch).
+
 ## Reading results
 
 Every edit returns the same structured fields:
@@ -127,6 +188,7 @@ Every edit returns the same structured fields:
 - `solve`: `unknowns`, `milliseconds`, `max_residual_mm` (how exactly the
   constraints hold; around 1e-12 is exact), and `curves_moved`.
 - `quality`: `pass`, and `failed`, a list of `{where, check, value, budget}`.
+- `fit` and `economy`, when the scene is fitted to a target (see above).
 
 `quality_report` gives everything: per joint the measured gap, angle and
 curvature deviation; per patch curvature, highlight-line and control-net
@@ -149,10 +211,14 @@ statistics.
 | `degree` | patch | the patch's highest degree | > `max_degree` |
 | `degenerate_samples` | anywhere | points with no defined normal or curvature (collapsed edge) | ever |
 | `unsolved` | patch | the stored geometry is only a starting guess | ever; edits solve it |
+| `fit_max_mm` | fit | largest distance from a target point to the surface | > budget |
+| `fit_rms_mm` | fit | RMS of those distances | > budget |
+| `fit_p95_mm` | fit | 95th percentile of those distances | > budget |
 
 Budgets belong to the scene, and the user owns them. A budget that is not set
-is not checked. Never relax a budget to make a report pass; propose it
-instead, with the reason.
+is not checked. Set one with `budgets_set` when the user states it ("within
+0.5 mm"). Never relax a budget to make a report pass; propose it instead, with
+the reason, and change it only once the user agrees.
 
 ## When something fails
 
@@ -190,6 +256,15 @@ instead, with the reason.
   against a curve that is not exactly in Y = 0 (refit the curve with y = 0);
   G2 on several sides of a degree-3 patch (raise the degree); a joint to a
   fixed patch (only the other side can move).
+- **A fit over budget** (`fit_max_mm`, `fit_rms_mm`, `fit_p95_mm`). With CV
+  economy on, the result says whether raising degrees ran into the
+  `max_degree` cap. If it did, the network needs more rows or columns: `undo`
+  back past `network_from_target` and lay it again finer. If `fit.outside` is
+  above 0, the network does not cover the whole target: check the corners.
+- **`layout_failed`** (from `network_from_target`). The corners are not in
+  order round one outline loop, a side has too few outline points for the
+  rows or columns asked, or an inner line leaves the target (an outline that
+  bends inwards): pick corners and counts the outline can carry.
 
 **Degree or split?** Raise the degree when the shape is right but the
 continuity needs more freedom. Split (rebuild the network with another row or
