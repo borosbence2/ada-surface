@@ -337,9 +337,9 @@ be changed before the milestone that depends on it starts.
 - Exit: synthetic targets (known Bézier + noise) are recovered within noise level at the original degree. *Met: a degree-4 panel on cubic boundaries, sampled with 0.05 mm noise, comes back at degree 4 (economy starts at 3 and stops after one step), with RMS within 1.2x the noise and the surface within half the noise of the truth (`tests/fit/test_fit_scene.cpp`).*
 
 #### M12 — Hood from real data
-- [ ] Source the target: the Cranfield DrivAer CAD packs (CC BY 4.0) or the TUM DrivAer CAD (on request; check its terms). Synthetic fallback either way.
-- [ ] Case `L3-hood-from-target`, runnable by the agent: "rebuild this hood, G2 at Y=0, 0.5 mm".
-- Exit: the case passes in the bench and exported surfaces pass the NX check.
+- [x] Source the target: the Cranfield DrivAer CAD packs (CC BY 4.0) or the TUM DrivAer CAD (on request; check its terms). Synthetic fallback either way. *DrivAerML instead (Ashton et al. 2024, CC BY-SA 4.0; downloadable, no request): the hood (`BodyHood`) of run 1's CAD tessellation, right half, in `cases/targets/drivaer-hood.ply` (`scripts/drivaer_hood.py`). The share-alike licence covers that file only.*
+- [x] Case `L3-hood-from-target`, runnable by the agent: "rebuild this hood, G2 at Y=0, 0.5 mm". *Target tools: `target_add`, `target_info` (outline, corners, sides in Y = 0), `network_from_target` (outline curves through every outline point, sections across), `fit_set`, `budgets_set`; edits run CV economy when the fit asks for it. The case is built through these tools by a test, and the eval task `rebuild-hood` gives an agent the sentence.*
+- Exit: the case passes in the bench and exported surfaces pass the NX check. *Met with OpenCASCADE, as M6: the bench passes (0.21 mm max from the target) and OpenCASCADE agrees on all 28 joints. NX when available.*
 
 ### Phase 4 — Learning (outline; to be detailed after Phase 2)
 
@@ -606,3 +606,32 @@ auto-update and code signing, cloud, multi-user.
   up to 6x6, and the report then shows the price (highlight inflections,
   zig-zags): following a bumped scan is not Class-A. Blends are not fitted
   yet.
+- 2026-10-28 — M12 done: a hood from real data. The target is DrivAerML's
+  DrivAer hood (CC BY-SA 4.0; the plan's Cranfield and TUM CAD packs need a
+  request), the right half of its CAD tessellation, fitted at its vertices
+  (its flat facets cut below the CAD surface). Agent tools: `target_add`,
+  `target_info` (outline loops, corners where the outline turns by more than
+  45 degrees, the sides between them and which lie in Y = 0),
+  `network_from_target` (outline curves through every outline vertex at
+  degree 5, since cubics through a thinned outline missed the edge by 0.9 mm;
+  nodes at equal lengths; inner nodes by Coons interpolation in plan; inner
+  lines probed on the mesh), `fit_set` and `budgets_set`. Every edit now runs
+  CV economy when the fit asks for it, and reports the fit. A test writes the
+  L3 case through these tools, and another rebuilds and compares it. They
+  replace the Python layout, which had missed seam vertices a hair off Y = 0
+  and cut the centre line unevenly: the tools' layout fits better (0.21 mm
+  max against 0.26, RMS 0.046 mm, at most 11 zig-zag rows against 12), and
+  OpenCASCADE agrees on all 28 joints. Found on the way: (1) a curve shared
+  by two patches was held exactly in one and pulled in the other when only
+  one of them had a symmetry link, so adding symmetry one edge at a time
+  could contradict itself by 3 µm. A shared curve's control point now gives
+  way in every patch that uses it; complete networks solve as before.
+  (2) L3 took the ASan CI job from 7 to 21 minutes at -O0, where unoptimised
+  Eigen is about 60 times slower, so that job now builds at -O1 (`asan`
+  preset), as AddressSanitizer recommends. (3) The hood bends upwards at its
+  rear outer corner, so the case allows curvature reversal; its zig-zag
+  budget of 12 is a regression guard for alpha = 1 G2 joints between
+  patches of different size. Eval: `rebuild-hood` ("rebuild this hood, G2
+  at Y = 0, 0.5 mm") passes at 4 x 4 and 0.41 mm in a minute. The agent
+  traded fit for fewer zig-zags, which the guide now advises against. The
+  NX check stays open (no access).

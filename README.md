@@ -12,8 +12,9 @@ a quality report.
 > scenes through `ada-mcp`'s tools, guided by a Class-A craft guide, while
 > Studio shows the result live; an intent eval scores it (12/12 at baseline).
 > Surfaces can be fitted to a scan or mesh with as few control points as the
-> tolerance allows (M11); a hood rebuilt from real data is next (M12). The
-> chat inside Studio (M9) is on hold. See [MILESTONES.md](MILESTONES.md).
+> tolerance allows (M11), and the agent rebuilds a real hood, the DrivAer's,
+> from its CAD tessellation (M12, case L3). The chat inside Studio (M9) is on
+> hold. See [MILESTONES.md](MILESTONES.md).
 
 ## Building
 
@@ -43,6 +44,11 @@ the curves' degrees and raises patches only as far as the budgets need:
 ```
 ./build/release/bin/ada solve cases/examples/hood-fit.ada.json --economy -o results/fit.ada.json
 ```
+
+`cases/L3-hood-from-target.ada.json` does this with real data: the DrivAer
+hood (DrivAerML, CC BY-SA 4.0, see [cases/targets](cases/targets/README.md))
+rebuilt as a 4 x 4 G2 network within 0.5 mm. It was built through the agent's
+tools, the way an agent would build it.
 
 [docs/occt-verification.md](docs/occt-verification.md) describes the
 independent check: OpenCASCADE reads the exported IGES and measures every
@@ -100,12 +106,15 @@ tools:
 | `patch_set_degree`, `fairness_set` | more freedom for the solver; fairest surface versus least change |
 | `quality_report`, `get_selection` | the full report; what the user picked in Studio ("this edge") |
 | `undo`, `redo`, `solve`, `export_iges` | history, re-solve a hand-edited file, IGES out |
+| `target_add`, `target_info` | attach a scan or mesh to fit to; its outline, corners and sides |
+| `network_from_target` | a curve network laid on a target: outline curves along its edge, sections across it |
+| `fit_set`, `budgets_set` | make the patches follow the target (with CV economy); set the budgets they are judged by |
 
 No tool sets control points. Every edit solves the scene and writes the file;
 an edit that cannot be solved is refused with an error code, the reason and
 what to try, and leaves the file as it was.
 
-[docs/intent-eval.md](docs/intent-eval.md) is the agent's scorecard: twelve
+[docs/intent-eval.md](docs/intent-eval.md) is the agent's scorecard: thirteen
 intent tasks run headless through Claude Code (`agent/eval/run_eval.py`),
 each judged by the scene and quality report it leaves behind.
 
