@@ -28,6 +28,15 @@
       }
     },
     {
+      "name": "asan",
+      "inherits": "dev",
+      "displayName": "asan - Debug at -O1 with ASan + UBSan",
+      "description": "The CI sanitizer job. -O1 is what AddressSanitizer recommends: at -O0, unoptimised Eigen makes the fitted case (L3) take minutes per solve.",
+      "cacheVariables": {
+        "CMAKE_CXX_FLAGS_DEBUG": "-g -O1"
+      }
+    },
+    {
       "name": "release",
       "inherits": "base",
       "displayName": "release - optimised, no sanitizers",
@@ -54,6 +63,7 @@
   ],
   "buildPresets": [
     { "name": "dev", "configurePreset": "dev" },
+    { "name": "asan", "configurePreset": "asan" },
     { "name": "release", "configurePreset": "release" },
     { "name": "ci", "configurePreset": "ci" }
   ],
@@ -65,6 +75,7 @@
       "execution": { "noTestsAction": "error", "stopOnFailure": false }
     },
     { "name": "dev", "inherits": "base", "configurePreset": "dev" },
+    { "name": "asan", "inherits": "base", "configurePreset": "asan" },
     { "name": "release", "inherits": "base", "configurePreset": "release" },
     { "name": "ci", "inherits": "base", "configurePreset": "ci" }
   ]

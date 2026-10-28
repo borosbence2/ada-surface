@@ -33,10 +33,10 @@ jobs:
             preset: ci
             cc: cl
             cxx: cl
-          # Debug build under ASan + UBSan.
+          # Debug build (at -O1) under ASan + UBSan.
           - name: linux-asan
             os: ubuntu-latest
-            preset: dev
+            preset: asan
             cc: clang
             cxx: clang++
 
