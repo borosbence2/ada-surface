@@ -64,6 +64,7 @@ ctest --preset dev --output-on-failure
 ./build/dev/bin/ada report cases/examples/hood.ada.json      # exit 0 pass, 1 fail, 2 error
 ./build/dev/bin/ada solve cases/L2-hood-2x2-sym.ada.json -o results/hood.ada.json
 ./build/dev/bin/ada bench cases                              # scorecard; exit 0 only if every case passes
+./build/release/bin/ada_tests "[.generate-cases]"            # rewrite cases/ from their generators (L3: through the MCP tools)
 ./build/dev/bin/ada export cases/L2-hood-2x2-sym.ada.json --solve -o results/hood.igs
 ./build/release/bin/ada solve cases/examples/hood-fit.ada.json --economy -o results/fit.ada.json   # fit to a target, CV economy
 .venv/Scripts/python scripts/occt_check.py                   # OpenCASCADE re-measures every case; exit 0 = agrees

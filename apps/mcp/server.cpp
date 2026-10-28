@@ -393,6 +393,129 @@ void McpServer::register_tools() {
         Kind::Write,
         true,
         [this](const nlohmann::json& args) { return fairness_set(session_, history_, args); });
+
+    // Targets and fitting.
+    const nlohmann::json point_schema = {
+        {"type", "array"}, {"items", {{"type", "number"}}}, {"minItems", 3}, {"maxItems", 3}};
+    add_tool(
+        "target_add",
+        "Attach a mesh or point cloud (OBJ, STL or PLY) as a target to fit to. A relative path "
+        "is taken from the scene file's folder. Returns its size, bounds and outline; fit_set "
+        "makes the patches follow it.",
+        object_schema(
+            {{"id", {{"type", "string"}, {"description", "New target id"}}},
+             {"file", {{"type", "string"}, {"description", "OBJ, STL or PLY file"}}},
+             {"sample",
+              {{"type", "string"},
+               {"enum", {"surface", "vertices"}},
+               {"description",
+                "Which points the fit follows: 'vertices' for a CAD tessellation (its vertices "
+                "lie on the surface, its flat facets do not), 'surface' (default) for a scan "
+                "(points spread over its triangles)"}}},
+             {"spacing_mm",
+              {{"type", "number"},
+               {"exclusiveMinimum", 0},
+               {"description", "Distance between points spread over a mesh (default 10)"}}},
+             {"scale",
+              {{"type", "number"},
+               {"exclusiveMinimum", 0},
+               {"description", "File units to millimetres, e.g. 1000 for metres (default 1)"}}},
+             {"replace",
+              {{"type", "boolean"}, {"description", "Change an existing target (default false)"}}}},
+            {"id", "file"}),
+        Kind::Write,
+        false,
+        [this](const nlohmann::json& args) { return target_add(session_, history_, args); });
+    add_tool("target_info",
+             "Describe a target: points, bounds, the axis it faces, and its outline loops with "
+             "their corners (where the outline turns sharply) and the sides between them, "
+             "flagging sides in Y = 0. The corners are what network_from_target takes.",
+             object_schema(
+                 {{"id",
+                   {{"type", "string"},
+                    {"description", "Target id (default: the fit's target, or the only one)"}}}}),
+             Kind::Read,
+             true,
+             [this](const nlohmann::json& args) { return target_info(session_, args); });
+    add_tool(
+        "network_from_target",
+        "Lay a rows x cols network of patches over a target, as network_from_curves does over "
+        "curves. corners are four points on the target's outline (target_info lists its "
+        "corners), in order round it: corners[0] -> corners[1] becomes the first row's VMin "
+        "side (u grows along it), corners[0] -> corners[3] the first column's UMin side. Outline "
+        "lines pass through every outline point between their nodes, which cut each side into "
+        "equal lengths; inner lines are sections through the target, straight in plan. Patch "
+        "(r, c) is '<prefix>_<r>_<c>', curves '<prefix>_u<r>_<c>' (rows) and "
+        "'<prefix>_v<c>_<r>' (columns). The result lists the edges lying in Y = 0.",
+        object_schema(
+            {{"prefix", {{"type", "string"}, {"description", "Patch and curve id prefix"}}},
+             {"target",
+              {{"type", "string"},
+               {"description", "Target id (default: the fit's target, or the only one)"}}},
+             {"corners",
+              {{"type", "array"},
+               {"items", point_schema},
+               {"minItems", 4},
+               {"maxItems", 4},
+               {"description", "Four [x, y, z] points on the outline, in order round it"}}},
+             {"rows",
+              {{"type", "integer"},
+               {"minimum", 1},
+               {"maximum", 12},
+               {"description", "Patches from corners[0] towards corners[3]"}}},
+             {"cols",
+              {{"type", "integer"},
+               {"minimum", 1},
+               {"maximum", 12},
+               {"description", "Patches from corners[0] towards corners[1]"}}},
+             {"continuity", continuity_schema(false, "Across internal edges (default G2)")},
+             {"outline_degree", degree_schema("Degree of the outline curves (default 5)")},
+             {"section_degree", degree_schema("Degree of the inner curves (default 3)")},
+             {"section_points",
+              {{"type", "integer"},
+               {"minimum", 2},
+               {"description", "Points on each inner curve (default 9)"}}}},
+            {"prefix", "corners", "rows", "cols"}),
+        Kind::Write,
+        false,
+        [this](const nlohmann::json& args) {
+            return network_from_target(session_, history_, args);
+        });
+    add_tool(
+        "fit_set",
+        "Make the from_boundaries patches follow a target, change how, or stop (target "
+        "'none'). Boundary curves stay as they are; the free control points follow the "
+        "target's points, and the fairness energy steadies what the data leaves loose. "
+        "economy: every solve starts the patches at their curves' degrees and raises the "
+        "worst-fitting one until the fit budgets pass (needs a fit budget, see budgets_set), "
+        "so degrees set by hand do not last. Every edit then solves the fit, which takes "
+        "longer: set it once the network and its constraints are in place.",
+        object_schema(
+            {{"target",
+              {{"type", "string"}, {"description", "Target id, or 'none' to stop fitting"}}},
+             {"weight",
+              {{"type", "number"},
+               {"exclusiveMinimum", 0},
+               {"description",
+                "How strongly the data leads against the fairness (default "
+                "1000; lower lets the fairness smooth more)"}}},
+             {"economy", {{"type", "boolean"}, {"description", "CV economy (default false)"}}}}),
+        Kind::Write,
+        true,
+        [this](const nlohmann::json& args) { return fit_set(session_, history_, args); });
+    add_tool("budgets_set",
+             "Change some of the quality budgets the report judges by, e.g. {\"fit_max_mm\": "
+             "0.5, \"max_degree\": 7}; the rest stay. null puts a budget back to its default. "
+             "Change a budget only for a reason you state.",
+             object_schema({{"budgets",
+                             {{"type", "object"},
+                              {"description",
+                               "Budgets to change: fields of a scene file's budgets section"}}}},
+                           {"budgets"}),
+             Kind::Write,
+             true,
+             [this](const nlohmann::json& args) { return budgets_set(session_, history_, args); });
+
     add_tool("solve",
              "Solve the open scene again and write it back, with the full quality report. Edits "
              "already solve; this is for a scene file changed by hand or authored without control "

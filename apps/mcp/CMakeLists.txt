@@ -5,9 +5,11 @@ add_library(ada_mcp_server STATIC
     base64.hpp
     common.cpp
     common.hpp
+    edit.hpp
     edit_tools.cpp
     server.cpp
     server.hpp
+    target_tools.cpp
     tools.cpp
     tools.hpp)
 

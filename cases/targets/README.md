@@ -6,7 +6,9 @@ The right half (y >= 0) of the hood of the DrivAer car model: the part
 `BodyHood` of `run_1/drivaer_1.stl` from the DrivAerML dataset, converted to
 millimetres. 744 vertices and 1350 triangles of the CAD tessellation; the
 vertices lie on the CAD surface. `scripts/drivaer_hood.py` downloads the
-source and writes this file and `cases/L3-hood-from-target.ada.json`.
+source and writes this file. `cases/L3-hood-from-target.ada.json` is built
+from it through the MCP tools, as an agent would build it
+(`ada_tests "write the L3 case through tool calls"`).
 
 **Source:** N. Ashton, C. Mockett, M. Fuchs, L. Fliessbach, H. Hetmann,
 T. Knacke, N. Schonwald, V. Skaperdas, G. Fotiadis, A. Walle, B. Hupertz,

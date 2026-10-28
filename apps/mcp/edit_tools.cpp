@@ -12,6 +12,7 @@
 #include "ada/tolerances.hpp"
 
 #include "common.hpp"
+#include "edit.hpp"
 #include "tools.hpp"
 
 #include <fmt/format.h>
@@ -22,6 +23,7 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -39,14 +41,6 @@ constexpr const char* kLoopHint =
     "the four curves must form a closed loop: UMin opposite UMax, VMin opposite VMax, and each "
     "curve meeting its two neighbours at a corner (which way a curve runs does not matter). "
     "Check which curve sits on which edge, or refit the curves through shared corner points";
-
-/// What an edit did, for the agent: a sentence, and the same as data.
-struct EditOutcome {
-    std::string text;
-    nlohmann::json data = nlohmann::json::object();
-};
-
-using Edit = std::function<EditOutcome(Scene&)>;
 
 // --- Lookups with errors an agent can act on ----------------------------------
 
@@ -104,13 +98,6 @@ const SceneCurve& require_curve(const Scene& scene, const std::string& id) {
                                            "curve_from_points"
                                          : "curves in this scene: " + id_list(curve_ids(scene)),
                     {{"id", id}});
-}
-
-ToolError id_taken(const std::string& kind, const std::string& id) {
-    return ToolError(fmt::format("there is already a {} '{}'", kind, id),
-                     "id_taken",
-                     "pass replace: true to change it, or pick another id",
-                     {{"id", id}});
 }
 
 double contact_tolerance(const Scene& scene) {
@@ -247,10 +234,41 @@ void add_quality(std::string& text, nlohmann::json& data, const Scene& scene) {
     data["quality"] = {{"pass", report.pass}, {"failed", std::move(list)}};
 }
 
-ToolResult
-edit_result(const EditOutcome& outcome, const SceneSolveSummary& solve, const Scene& scene) {
+ToolResult edit_result(const EditOutcome& outcome,
+                       const SceneSolveSummary& solve,
+                       const std::optional<EconomyResult>& economy,
+                       const Scene& scene) {
     std::string text = outcome.text;
     nlohmann::json data = {{"changed", outcome.text}, {"details", outcome.data}};
+    if (economy.has_value()) {
+        std::string steps;
+        for (const std::string& step : economy->steps) {
+            steps += (steps.empty() ? "" : "; ") + step;
+        }
+        text += "\nCV economy: " + (steps.empty() ? "no patch needed a higher degree" : steps);
+        text += economy->met ? "; the fit budgets are met"
+                             : "; the fit budgets are out of reach at the degree cap";
+        data["economy"] = {{"met", economy->met}, {"steps", economy->steps}};
+    }
+    if (solve.fit.active) {
+        const FitStats& f = solve.fit.stats;
+        text += fmt::format("\nfit to '{}': max {:.3f} mm, RMS {:.3f} mm, p95 {:.3f} mm over {} "
+                            "points ({} beyond the patches), {} solves",
+                            scene.fit->target,
+                            f.max_mm,
+                            f.rms_mm,
+                            f.p95_mm,
+                            f.points,
+                            f.outside,
+                            solve.fit.iterations);
+        data["fit"] = {{"target", scene.fit->target},
+                       {"points", f.points},
+                       {"outside", f.outside},
+                       {"max_mm", f.max_mm},
+                       {"rms_mm", f.rms_mm},
+                       {"p95_mm", f.p95_mm},
+                       {"solves", solve.fit.iterations}};
+    }
 
     nlohmann::json moved = nlohmann::json::array();
     std::string moved_text;
@@ -274,8 +292,15 @@ edit_result(const EditOutcome& outcome, const SceneSolveSummary& solve, const Sc
     return {std::move(text), std::move(data), false};
 }
 
-/// Applies `edit` to a copy of the open scene, solves it and writes it back,
-/// or changes nothing and says why.
+} // namespace
+
+ToolError id_taken(const std::string& kind, const std::string& id) {
+    return ToolError(fmt::format("there is already a {} '{}'", kind, id),
+                     "id_taken",
+                     "pass replace: true to change it, or pick another id",
+                     {{"id", id}});
+}
+
 ToolResult apply_edit(SceneSession& session, History& history, const Edit& edit) {
     const Scene before = session.current();
     Scene after = before;
@@ -287,8 +312,14 @@ ToolResult apply_edit(SceneSession& session, History& history, const Edit& edit)
             throw ToolError(e.what(), "invalid_edit", "check the ids, edges and values named");
         }
         SceneSolveSummary summary;
+        std::optional<EconomyResult> economy;
         try {
-            summary = solve_scene(after);
+            if (after.fit.has_value() && after.fit->economy) {
+                economy = fit_economically(after);
+                summary = economy->last;
+            } else {
+                summary = solve_scene(after);
+            }
         } catch (const SolveError& e) {
             throw solve_failure(e);
         } catch (const std::invalid_argument& e) {
@@ -296,7 +327,7 @@ ToolResult apply_edit(SceneSession& session, History& history, const Edit& edit)
         }
         history.record(before, outcome.text);
         write_scene(after, session.path());
-        return edit_result(outcome, summary, after);
+        return edit_result(outcome, summary, economy, after);
     } catch (const ToolError& e) {
         throw ToolError(std::string(e.what()) + " (the scene was not changed)",
                         e.code,
@@ -304,10 +335,6 @@ ToolResult apply_edit(SceneSession& session, History& history, const Edit& edit)
                         e.details);
     }
 }
-
-// --- Degrees -------------------------------------------------------------------
-
-} // namespace
 
 // --- The tools -----------------------------------------------------------------
 

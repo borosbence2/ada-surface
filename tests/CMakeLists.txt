@@ -23,10 +23,13 @@ add_executable(ada_tests
     io/test_target.cpp
     mcp/test_edit_tools.cpp
     mcp/test_server.cpp
+    mcp/test_target_tools.cpp
     solve/test_fairness.cpp
     solve/test_solver.cpp
     support/cases.cpp
     support/cases.hpp
+    support/mcp_calls.cpp
+    support/mcp_calls.hpp
     support/panels.cpp
     support/panels.hpp
     support/polynomial.cpp

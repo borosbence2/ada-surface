@@ -40,6 +40,14 @@ ToolResult fairness_set(SceneSession& session, History& history, const nlohmann:
 ToolResult undo(SceneSession& session, History& history);
 ToolResult redo(SceneSession& session, History& history);
 
+// Target tools (target_tools.cpp): fit targets, curve networks laid on them,
+// the fit and the budgets. All but target_info are edits, as above.
+ToolResult target_add(SceneSession& session, History& history, const nlohmann::json& args);
+ToolResult target_info(SceneSession& session, const nlohmann::json& args);
+ToolResult network_from_target(SceneSession& session, History& history, const nlohmann::json& args);
+ToolResult fit_set(SceneSession& session, History& history, const nlohmann::json& args);
+ToolResult budgets_set(SceneSession& session, History& history, const nlohmann::json& args);
+
 // Studio-only tools (--ui-tools). Bulk arrays travel as base64 little-endian
 // float32/uint32 (see base64.hpp).
 ToolResult tessellate(SceneSession& session, const nlohmann::json& args);

@@ -2,6 +2,7 @@
 #include "ada/doc/scene.hpp"
 
 #include "server.hpp"
+#include "support/mcp_calls.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
@@ -14,6 +15,10 @@
 #include <vector>
 
 using ada::mcp::McpServer;
+using ada::test::fails;
+using ada::test::ok;
+using ada::test::server_with_new_scene;
+using ada::test::TempDir;
 using nlohmann::json;
 
 namespace {
@@ -21,67 +26,9 @@ namespace {
 /// The quality budgets' G2 tolerance is 1 %; a solve reaches far better.
 constexpr double kSameMm = 1e-6;
 
-/// A fresh, empty directory for one test, removed again when it ends.
-struct TempDir {
-    std::filesystem::path path;
-
-    explicit TempDir(const std::string& name)
-        : path(std::filesystem::temp_directory_path() / ("ada-mcp-edit-" + name)) {
-        std::filesystem::remove_all(path);
-        std::filesystem::create_directories(path);
-    }
-
-    ~TempDir() {
-        std::error_code ignored;
-        std::filesystem::remove_all(path, ignored);
-    }
-
-    TempDir(const TempDir&) = delete;
-    TempDir& operator=(const TempDir&) = delete;
-
-    std::string file(const std::string& name) const { return (path / name).generic_string(); }
-};
-
-json call(McpServer& server, const std::string& tool, json arguments = json::object()) {
-    const auto response =
-        server.handle({{"jsonrpc", "2.0"},
-                       {"id", 7},
-                       {"method", "tools/call"},
-                       {"params", {{"name", tool}, {"arguments", std::move(arguments)}}}});
-    REQUIRE(response.has_value());
-    REQUIRE(response->contains("result"));
-    return response->at("result");
-}
-
-/// Calls a tool that must succeed and returns its structured content.
-json ok(McpServer& server, const std::string& tool, json arguments = json::object()) {
-    const json result = call(server, tool, std::move(arguments));
-    INFO(tool << ": " << result.at("content")[0].at("text").get<std::string>());
-    REQUIRE(result.at("isError") == false);
-    return result.at("structuredContent");
-}
-
-/// Calls a tool that must fail and returns its structured error.
-json fails(McpServer& server, const std::string& tool, json arguments = json::object()) {
-    const json result = call(server, tool, std::move(arguments));
-    INFO(tool << ": " << result.at("content")[0].at("text").get<std::string>());
-    REQUIRE(result.at("isError") == true);
-    return result.at("structuredContent").at("error");
-}
-
 std::string contents(const std::string& file) {
     std::ifstream stream(file, std::ios::binary);
     return {std::istreambuf_iterator<char>(stream), std::istreambuf_iterator<char>()};
-}
-
-McpServer server_with_new_scene(const TempDir& dir) {
-    McpServer server({});
-    static_cast<void>(server.handle({{"jsonrpc", "2.0"},
-                                     {"id", 1},
-                                     {"method", "initialize"},
-                                     {"params", {{"protocolVersion", "2025-06-18"}}}}));
-    ok(server, "scene_new", {{"path", dir.file("test.ada.json")}});
-    return server;
 }
 
 /// The hood's height field (as in the authored cases), even in y.
@@ -476,11 +423,7 @@ TEST_CASE("the L2 hood case can be built from scratch through tool calls alone",
     const json authored = json::parse(stream);
 
     const TempDir dir("hood");
-    McpServer server({});
-    static_cast<void>(server.handle({{"jsonrpc", "2.0"},
-                                     {"id", 1},
-                                     {"method", "initialize"},
-                                     {"params", {{"protocolVersion", "2025-06-18"}}}}));
+    McpServer server = ada::test::started_server();
     ok(server,
        "scene_new",
        {{"path", dir.file("hood.ada.json")},
