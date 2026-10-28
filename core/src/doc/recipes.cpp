@@ -8,6 +8,7 @@
 #include <fmt/format.h>
 
 #include <algorithm>
+#include <array>
 #include <chrono>
 #include <cmath>
 #include <deque>
@@ -478,29 +479,67 @@ SceneSolveSummary solve_scene(Scene& scene) {
         }
 
         // Boundary rows on the curves: exact where nothing else acts on the
-        // control point, a strong pull where continuity does.
-        for (const auto& [id, b] : boundaries) {
-            const std::size_t k = index[id];
-            const BezierPatch& start = stage1.patches[k];
-            auto hold = [&](const BezierCurve& curve, Edge edge, const char* name) {
-                for (std::size_t m = 0; m < curve.num_control_points(); ++m) {
-                    const auto [i, j] = start.edge_row_cv(edge, 0, m);
-                    if (yielding.count({k, i, j}) > 0) {
-                        stage1.targets.push_back(
-                            {{k, i, j}, curve.control_point(m), tol::kCurveTargetWeight});
-                    } else {
-                        add_fixed(stage1.constraints,
-                                  {k, i, j},
-                                  curve.control_point(m),
-                                  fmt::format("{} boundary {}", id, name));
+        // control point, a strong pull where continuity does. A curve shared
+        // by several patches gives way in all of them: held exactly in one
+        // and pulled in another, its control point would be asked for two
+        // things wherever the pull has to move it. Its control points are
+        // matched by position, as each patch may run it the other way.
+        auto for_each_boundary_cv = [&](auto&& visit) {
+            for (const auto& [id, b] : boundaries) {
+                const std::size_t k = index[id];
+                const auto& curve_ids = std::get<FromBoundaries>(*scene.patch(id).recipe).curves;
+                const std::array<std::pair<const BezierCurve*, Edge>, 4> sides{
+                    {{&b.umin, Edge::UMin},
+                     {&b.umax, Edge::UMax},
+                     {&b.vmin, Edge::VMin},
+                     {&b.vmax, Edge::VMax}}};
+                for (std::size_t s = 0; s < sides.size(); ++s) {
+                    const auto& [curve, edge] = sides[s];
+                    for (std::size_t m = 0; m < curve->num_control_points(); ++m) {
+                        const auto [i, j] = stage1.patches[k].edge_row_cv(edge, 0, m);
+                        visit(id, k, curve_ids[s], curve->control_point(m), edge, i, j);
                     }
                 }
-            };
-            hold(b.umin, Edge::UMin, "UMin");
-            hold(b.umax, Edge::UMax, "UMax");
-            hold(b.vmin, Edge::VMin, "VMin");
-            hold(b.vmax, Edge::VMax, "VMax");
-        }
+            }
+        };
+        std::map<std::string, std::vector<Vec3>> yielding_on_curve;
+        for_each_boundary_cv([&](const std::string&,
+                                 std::size_t k,
+                                 const std::string& curve,
+                                 const Vec3& point,
+                                 Edge,
+                                 std::size_t i,
+                                 std::size_t j) {
+            if (yielding.count({k, i, j}) > 0) {
+                yielding_on_curve[curve].push_back(point);
+            }
+        });
+        auto yields_elsewhere = [&](const std::string& curve, const Vec3& point) {
+            const auto found = yielding_on_curve.find(curve);
+            if (found == yielding_on_curve.end()) {
+                return false;
+            }
+            const double same = tol::kCurveCornerGap * std::max(1.0, point.cwiseAbs().maxCoeff());
+            return std::any_of(found->second.begin(), found->second.end(), [&](const Vec3& q) {
+                return (q - point).norm() <= same;
+            });
+        };
+        for_each_boundary_cv([&](const std::string& id,
+                                 std::size_t k,
+                                 const std::string& curve,
+                                 const Vec3& point,
+                                 Edge edge,
+                                 std::size_t i,
+                                 std::size_t j) {
+            if (yielding.count({k, i, j}) > 0 || yields_elsewhere(curve, point)) {
+                stage1.targets.push_back({{k, i, j}, point, tol::kCurveTargetWeight});
+            } else {
+                add_fixed(stage1.constraints,
+                          {k, i, j},
+                          point,
+                          fmt::format("{} boundary {}", id, to_string(edge)));
+            }
+        });
 
         std::vector<bool> fitted;
         for (const std::size_t k : scene_of) {

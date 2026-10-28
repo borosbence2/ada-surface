@@ -326,6 +326,36 @@ TEST_CASE("a symmetric 2x2 network from curves through points comes out G2", "[d
     CHECK(report.pass);
 }
 
+TEST_CASE("a curve shared by two patches gives way in both", "[doc][recipes]") {
+    // The middle row line crosses Y = 0 slightly off a right angle. Symmetry
+    // on the first row's centre edge alone has to bend it there, in the
+    // second row too, which is joined to the first across it. At degree 5
+    // nothing else frees that control point in the second row (at degree 3
+    // the G2 joint at the row's other end reaches it).
+    Scene scene = hood_network();
+    scene.symmetry.pop_back();
+    REQUIRE(scene.symmetry.size() == 1);
+    for (ada::ScenePatch& p : scene.patches) {
+        auto& recipe = std::get<ada::FromBoundaries>(*p.recipe);
+        recipe.degree_u = 5;
+        recipe.degree_v = 5;
+    }
+    for (ada::SceneCurve& c : scene.curves) {
+        if (c.id == "u_1_0") {
+            for (Vec3& p : *c.through) {
+                const double a = p.y() / 350.0;
+                p.z() += 0.05 * a * (1.0 - a);
+            }
+            c.curve = ada::curve_through_points(*c.through, 3);
+        }
+    }
+    REQUIRE_NOTHROW(ada::solve_scene(scene));
+    require_joins(scene);
+    const ada::SymmetryContinuity s = ada::measure_symmetry(
+        PatchEvaluator(scene.patch("hood_0_0").patch), Edge::UMin, kEdgeSamples);
+    CHECK(s.max_normal_tilt_deg < kJoinAngleDeg);
+}
+
 TEST_CASE("scenes round-trip through JSON, solved or not", "[doc][scene]") {
     Scene authored = hood_network();
     authored.pins.push_back({"hood_1_1", 0.5, 0.5, Vec3(900, 520, 790)});
